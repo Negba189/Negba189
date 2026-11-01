@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'Heebo', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    @apply bg-white text-slate-900 antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium rounded-lg transition-all duration-150 shadow-lg shadow-blue-900/30 hover:shadow-blue-700/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-100 text-slate-900 font-medium rounded-lg transition-all duration-150 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600/90 hover:bg-red-500 active:bg-red-700 text-white font-medium rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-slate-100/70 border border-slate-300/60 rounded-xl backdrop-blur-sm;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 bg-white/80 border border-slate-600 rounded-lg text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent transition-all duration-150;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.25s ease-out;
+  overflow: hidden;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  @apply bg-slate-700/50 rounded;
+  background-image: linear-gradient(90deg, rgba(51,65,85,0.3) 25%, rgba(71,85,105,0.5) 50%, rgba(51,65,85,0.3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===================== Print Styles ===================== */
+
+@media print {
+  /* Reset page to white background, black text */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide sidebar, top bar, mobile controls, and no-print elements */
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Expand main content to full width */
+  main {
+    padding: 0 !important;
+  }
+
+  /* Force cards to have white background with thin borders */
+  .card {
+    background: #fff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+
+  /* Buttons — hide in print */
+  button {
+    display: none !important;
+  }
+
+  /* Keep print-specific elements visible */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Color overrides for print readability — use raw CSS to avoid circular @apply */
+  .text-slate-900, .text-slate-800, .text-slate-600 {
+    color: #000 !important;
+  }
+  .text-slate-600, .text-slate-500, .text-slate-600 {
+    color: #475569 !important;
+  }
+  .text-emerald-400, .text-emerald-300 {
+    color: #047857 !important;
+  }
+  .text-red-400, .text-red-300 {
+    color: #b91c1c !important;
+  }
+  .text-amber-400, .text-amber-300 {
+    color: #b45309 !important;
+  }
+  .text-blue-400, .text-blue-300 {
+    color: #1d4ed8 !important;
+  }
+  .text-brigade-300, .text-brigade-400 {
+    color: #6494b8 !important;
+  }
+  .text-orange-400, .text-orange-300 {
+    color: #c2410c !important;
+  }
+
+  /* Badge borders visible in print */
+  .badge {
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  /* Report header for print */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #1e3a5f;
+  }
+
+  /* Tables: full borders */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 0.25rem 0.5rem;
+    color: #000 !important;
+    font-size: 0.75rem;
+  }
+  th {
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  /* Avoid breaking inside rows/cards */
+  tr, .card {
+    break-inside: avoid;
+  }
+}
+
+/* Print-only elements hidden on screen */
+.print-only {
+  display: none;
+}
+
+.print-header {
+  display: none;
+}
