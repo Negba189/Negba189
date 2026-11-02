@@ -1033,7 +1033,7 @@ export default function WeaponDashboard() {
       
       {/* ד. פערים קריטיים בתפקידי נשק וחי"ר */}
       <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-700">
             <AlertCircle className="w-5 h-5" />
             <h3 className="text-base font-bold text-slate-900">פערים קריטיים בתפקידי נשק וחי"ר</h3>
@@ -1045,14 +1045,14 @@ export default function WeaponDashboard() {
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                <th className="p-3.5 pr-5">תפקיד נשק / חי"ר</th>
-                <th className="p-3.5 text-center">תקינה מוגדרת</th>
-                <th className="p-3.5 text-center text-blue-700">משובצים</th>
-                <th className="p-3.5 text-center text-blue-900">תקנים מאוישים בפועל</th>
-                <th className="p-3.5 text-center text-purple-700">תקינה עודפת</th>
-                <th className="p-3.5 text-center text-emerald-600">כשירים בפועל</th>
-                <th className="p-3.5 text-center text-amber-600">מאוישים לא כשירים</th>
-                <th className="p-3.5 text-center text-rose-600">פער איוש תקן</th>
+                <th className="p-2.5 pr-5">תפקיד נשק / חי"ר</th>
+                <th className="p-2.5 text-center">תקינה מוגדרת</th>
+                <th className="p-2.5 text-center text-blue-700">משובצים</th>
+                <th className="p-2.5 text-center text-blue-900">תקנים מאוישים בפועל</th>
+                <th className="p-2.5 text-center text-purple-700">תקינה עודפת</th>
+                <th className="p-2.5 text-center text-emerald-600">כשירים בפועל</th>
+                <th className="p-2.5 text-center text-amber-600">מאוישים לא כשירים</th>
+                <th className="p-2.5 text-center text-rose-600">פער איוש תקן</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -1065,36 +1065,36 @@ export default function WeaponDashboard() {
               ) : (
                 criticalWeaponGaps.map((gap, idx) => (
                   <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
-                    <td className="p-3.5 pr-5 font-bold text-slate-900">{gap.positionTitle}</td>
-                    <td className="p-3.5 text-center text-slate-700 font-bold">{gap.totalReq}</td>
-                    <td className="p-3.5 text-center text-blue-700 font-bold">{gap.assignedPersonsCount}</td>
-                    <td className="p-3.5 text-center text-blue-900 font-bold">{gap.mannedPositionsCount}</td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-2 pr-5 font-bold text-slate-900">{gap.positionTitle}</td>
+                    <td className="p-2 text-center text-slate-700 font-bold">{gap.totalReq}</td>
+                    <td className="p-2 text-center text-blue-700 font-bold">{gap.assignedPersonsCount}</td>
+                    <td className="p-2 text-center text-blue-900 font-bold">{gap.mannedPositionsCount}</td>
+                    <td className="p-2 text-center">
                       {gap.overstaffedCount > 0 ? (
-                        <span className="bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-lg font-bold">
+                        <span className="bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-lg font-bold text-[11px]">
                           +{gap.overstaffedCount}
                         </span>
                       ) : (
-                        <span className="text-slate-400">0</span>
+                        <span className="text-slate-300">0</span>
                       )}
                     </td>
-                    <td className="p-3.5 text-center text-emerald-600 font-bold">{gap.readyCount}</td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-2 text-center text-emerald-600 font-bold">{gap.readyCount}</td>
+                    <td className="p-2 text-center">
                       {gap.unqualifiedCount > 0 ? (
-                        <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-0.5 rounded-lg font-bold">
+                        <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-lg font-bold text-[11px]">
                           {gap.unqualifiedCount}
                         </span>
                       ) : (
-                        <span className="text-slate-400">0</span>
+                        <span className="text-slate-300">0</span>
                       )}
                     </td>
-                    <td className="p-3.5 text-center text-rose-600 font-black text-sm">
+                    <td className="p-2 text-center text-rose-600 font-black text-xs">
                       {gap.positionGapCount > 0 ? (
-                        <span dir="ltr" className="bg-rose-50 border border-rose-200 px-3 py-1 rounded-xl inline-block">
+                        <span dir="ltr" className="bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-lg inline-block">
                           -{gap.positionGapCount}
                         </span>
                       ) : (
-                        <span className="text-emerald-600 text-xs">תקין (0)</span>
+                        <span className="text-emerald-600 text-[11px]">תקין (0)</span>
                       )}
                     </td>
                   </tr>
