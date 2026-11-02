@@ -265,18 +265,63 @@ export default function MedicalDashboard() {
     return level1Units[0] || null;
   }, [units, level1Id, level2Id, level3Id, level1Units]);
 
-  // מחזיר את כל התקנים הרפואיים בכלל היחידות תחת הסקופ הנוכחי (כולל גדודים ופלוגות)
+  // מפת דרישות לפי תקן כדי לדעת אילו הסמכות מוגדרות לכל תקן
+  const reqsByPositionMap = useMemo(() => {
+    const map = new Map<string, PositionRequirement[]>();
+    rawRequirements.forEach((r) => {
+      const arr = map.get(r.position_id) || [];
+      arr.push(r);
+      map.set(r.position_id, arr);
+    });
+    return map;
+  }, [rawRequirements]);
+
+
+  // שילוב שתי הגישות: תפקיד רפואי לפי שם OR תקן שיש לו דרישת הסמכה רפואית
   const medicalPositions = useMemo(() => {
     return allPositions.filter((p) => {
-      const isMed = isMedicalPosition(p);
-      if (!isMed) return false;
-      
+      // בדיקה האם המסגרת נמצאת בסקופ הנוכחי (אם יש סקופ פעיל)
       if (scopeDescendantIds && p.unit_id) {
-        return scopeDescendantIds.has(p.unit_id);
+        if (!scopeDescendantIds.has(p.unit_id)) return false;
       }
-      return true;
+
+      // 1. בדיקה לפי שם התקן (תפקידי רפואה מוגדרים כולל נגזרות)
+      const title = (p.title || '').toLowerCase();
+      const isMedByName = 
+        title.includes('רפוא') ||
+        title.includes('חובש') ||
+        title.includes('רופא') ||
+        title.includes('פראמדיק') ||
+        title.includes('קרפ') ||     // תופס את קרפ"ח, קרפ"ג, קר"פ וכו'
+        title.includes('קב"ן') ||
+        title.includes('קא"ר') ||
+        title.includes('חוג"ד') ||
+        title.includes('ק. רפואה') ||
+        title.includes('סמב"ץ רפואה');
+
+      if (isMedByName) return true;
+
+      // 2. בדיקה האם מוגדרת לתקן דרישת הסמכה משויכת לקטגוריה רפואית (משתמש במפה הקיימת במערכת)
+      const posReqs = reqsByPositionMap.get(p.id) || [];
+      const hasMedicalQualificationReq = posReqs.some((req) => {
+        const qual = req.qualifications;
+        if (!qual) return false;
+        const category = (qual.category || '').toLowerCase();
+        const qualName = (qual.name || '').toLowerCase();
+        
+        // זיהוי האם ההסמכה שייכת לקטגוריה רפואית או מכילה מונחי רפואה
+        return (
+          category.includes('רפוא') ||
+          category.includes('medical') ||
+          qualName.includes('חובש') ||
+          qualName.includes('רופא') ||
+          qualName.includes('קורס רפואה')
+        );
+      });
+
+      return hasMedicalQualificationReq;
     });
-  }, [allPositions, scopeDescendantIds]);
+  }, [allPositions, scopeDescendantIds, reqsByPositionMap]);
 
   // מפת סטטוס לכל תקן רפואי
   const medicalStatusMap = useMemo(() => {
@@ -473,6 +518,20 @@ export default function MedicalDashboard() {
 
   // א. יחידות כפופות ישירות + מטה המסגרת הנוכחית
   const subFrameworksTableData = useMemo(() => {
+    // אם לא נבחרה רמה 1 (כלל המערכת), נציג את כלל חטיבות האם/רמה 1 במערכת
+    if (!level1Id) {
+      return level1Units.map((unit) => {
+        const stats = computeUnitMetrics(unit.id);
+        return {
+          id: unit.id,
+          name: unit.name,
+          type: unit.unit_type,
+          isSelfMete: false,
+          ...stats,
+        };
+      });
+    }
+
     if (!currentSelectedUnit) return [];
 
     const childUnits = units.filter(
@@ -526,7 +585,7 @@ export default function MedicalDashboard() {
     }
 
     return rows;
-  }, [currentSelectedUnit, units, medicalPositions, medicalStatusMap, computeUnitMetrics]);
+  }, [level1Id, level1Units, currentSelectedUnit, units, medicalPositions, medicalStatusMap, computeUnitMetrics]);
 
   // שורת סיכום כוללת
   const totalSummaryRow = useMemo(() => {
@@ -558,15 +617,16 @@ export default function MedicalDashboard() {
 
   // ד. פערים קריטיים בתפקידים רפואיים (כולל מאוישים ולא כשירים)
   const criticalMedicalGaps = useMemo(() => {
-    if (!currentSelectedUnit) return [];
-
-    const unitIdsToInclude = new Set<string>([String(currentSelectedUnit.id)]);
-    const descSet = descendantMaps[currentSelectedUnit.id];
-    if (descSet) descSet.forEach((id) => unitIdsToInclude.add(String(id)));
-
-    const scopedPositions = medicalPositions.filter(
-      (p) => p.unit_id && unitIdsToInclude.has(String(p.unit_id)),
-    );
+    // אם לא נבחרה יחידה, ניקח את כלל התקנים הרפואיים בסקופ המערכתי
+    const scopedPositions = (!level1Id) 
+      ? medicalPositions 
+      : medicalPositions.filter((p) => {
+          if (!currentSelectedUnit) return true;
+          const unitIdsToInclude = new Set<string>([String(currentSelectedUnit.id)]);
+          const descSet = descendantMaps[currentSelectedUnit.id];
+          if (descSet) descSet.forEach((id) => unitIdsToInclude.add(String(id)));
+          return p.unit_id && unitIdsToInclude.has(String(p.unit_id));
+        });
 
     const gapMap = new Map<string, { 
       positionTitle: string; 
@@ -608,7 +668,7 @@ export default function MedicalDashboard() {
       .filter((g) => g.gapCount > 0 || g.unqualifiedCount > 0)
       .sort((a, b) => b.gapCount - a.gapCount)
       .slice(0, 10);
-  }, [currentSelectedUnit, descendantMaps, medicalPositions, medicalStatusMap]);
+  }, [level1Id, currentSelectedUnit, descendantMaps, medicalPositions, medicalStatusMap]);
 
   // ספי צבע מותנים
   const getReadinessBadgeColor = (rate: number) => {
@@ -912,7 +972,146 @@ export default function MedicalDashboard() {
           })}
         </div>
       </div>
+      
+{/* טבלת מטריצה רוחבית: תפקידים רפואיים מול יחידות משנה ישירות */}
+  <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-slate-900">
+        <Stethoscope className="w-5 h-5 text-rose-600" />
+        <h3 className="text-sm font-bold">פריסת תפקידים רפואיים לפי יחידות משנה (מאוישים / תקינה)</h3>
+      </div>
+      <span className="text-[11px] text-slate-400">השוואת איוש רוחבית ברמה אחת כלפי מטה</span>
+    </div>
 
+    <div className="overflow-x-auto">
+      <table className="w-full text-right text-xs">
+        <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+          <tr>
+            <th className="p-2.5 pr-4 min-w-[160px]">תפקיד רפואי</th>
+            {subFrameworksTableData.map((subUnit) => (
+              <th key={subUnit.id} className="p-2.5 text-center min-w-[110px] border-r border-slate-200">
+                {subUnit.name}
+              </th>
+            ))}
+            <th className="p-2.5 text-center min-w-[90px] bg-slate-100 border-r-2 border-slate-300 font-black">
+              סה"כ מערכתי
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 font-medium">
+          {(() => {
+            const uniqueTitles = Array.from(new Set(medicalPositions.map(p => p.title.trim())));
+            
+            if (uniqueTitles.length === 0) {
+              return (
+                <tr>
+                  <td colSpan={subFrameworksTableData.length + 2} className="text-center py-5 text-slate-400">
+                    לא נמצאו תפקידים רפואיים להצגה במטריצה זו
+                  </td>
+                </tr>
+              );
+            }
+
+            const columnTotals: Record<string, { req: number; assigned: number }> = {};
+            subFrameworksTableData.forEach(subUnit => {
+              columnTotals[subUnit.id] = { req: 0, assigned: 0 };
+            });
+            let grandTotalReq = 0;
+            let grandTotalAssigned = 0;
+
+            const rowsMarkup = uniqueTitles.map((title) => {
+              let totalReqAll = 0;
+              let totalAssignedAll = 0;
+
+              return (
+                <tr key={title} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="p-2 pr-4 font-bold text-slate-900 bg-slate-50/40 text-[11px]">{title}</td>
+                  
+                  {subFrameworksTableData.map((subUnit) => {
+                    const descSet = descendantMaps[subUnit.id] || new Set();
+                    const unitSet = new Set<string>([String(subUnit.id)]);
+                    descSet.forEach(id => unitSet.add(String(id)));
+
+                    const matchingPositions = medicalPositions.filter(
+                      p => p.title.trim() === title && p.unit_id && unitSet.has(String(p.unit_id))
+                    );
+
+                    const reqCount = matchingPositions.length;
+                    const assignedCount = matchingPositions.filter(p => {
+                      const st = medicalStatusMap[p.id]?.status;
+                      return st === 'READY' || st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED';
+                    }).length;
+
+                    totalReqAll += reqCount;
+                    totalAssignedAll += assignedCount;
+
+                    columnTotals[subUnit.id].req += reqCount;
+                    columnTotals[subUnit.id].assigned += assignedCount;
+
+                    grandTotalReq += reqCount;
+                    grandTotalAssigned += assignedCount;
+
+                    const hasGap = assignedCount < reqCount;
+
+                    return (
+                      <td key={subUnit.id} className="p-2 text-center border-r border-slate-100">
+                        {reqCount === 0 ? (
+                          <span className="text-slate-300">-</span>
+                        ) : (
+                          <span 
+                            dir="ltr" 
+                            className={`px-1.5 py-0.5 rounded-md font-bold inline-block text-[11px] ${
+                              hasGap ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                          >
+                            {assignedCount} / {reqCount}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+
+                  <td className="p-2 text-center bg-slate-50/70 border-r-2 border-slate-200 font-black text-slate-900 text-[11px]">
+                    <span dir="ltr" className={`inline-block ${totalAssignedAll < totalReqAll ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {totalAssignedAll} / {totalReqAll}
+                    </span>
+                  </td>
+                </tr>
+              );
+            });
+
+            return (
+              <>
+                {rowsMarkup}
+                <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                  <td className="p-2.5 pr-4 text-xs">סה"כ ליחידות משנה</td>
+                  {subFrameworksTableData.map((subUnit) => {
+                    const col = columnTotals[subUnit.id];
+                    const hasColGap = col.assigned < col.req;
+                    return (
+                      <td key={subUnit.id} className="p-2.5 text-center border-r border-slate-300 text-xs">
+                        <span dir="ltr" className={`inline-block ${hasColGap ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          {col.assigned} / {col.req}
+                        </span>
+                      </td>
+                    );
+                  })}
+                  <td className="p-2.5 text-center bg-slate-200 border-r-2 border-slate-300 text-xs">
+                    <span dir="ltr" className={`inline-block ${grandTotalAssigned < grandTotalReq ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {grandTotalAssigned} / {grandTotalReq}
+                    </span>
+                  </td>
+                </tr>
+              </>
+            );
+          })()}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+      
       {/* ד. פערים קריטיים בתפקידים רפואיים */}
       <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
