@@ -25,6 +25,12 @@ import PositionQualificationsMatrixView from '@/views/PositionQualificationsMatr
 import UnitSummaryView from '@/views/UnitSummaryView';
 import UnitPositionsSummaryView from '@/views/UnitPositionsSummaryView';
 import UnitQualificationsSummaryView from '@/views/UnitQualificationsSummaryView';
+import BulkPositionQualificationsMatrixView from '@/views/BulkPositionQualificationsMatrixView';
+import WeaponDashboard from '@/views/WeaponDashboard';
+import DavidDashboard from '@/views/DavidDashboard';
+import CommandDashboard from '@/views/CommandDashboard';
+
+
 
 function AppContent() {
   const auth = useAuth();
@@ -67,7 +73,11 @@ function AppContent() {
           {(activeTab === 'platoon-structure' || activeTab === 'PlatoonStructureView' || activeTab === 'tactical' || activeTab === 'tactical-layout') && <PlatoonStructureView />}  
           {activeTab === 'unit_summary' && <UnitSummaryView />}
           {activeTab === 'unit_Position_summary' && <UnitPositionsSummaryView />}
+          {activeTab === 'BulkPositionQualificationsMatrixView' && <BulkPositionQualificationsMatrixView />}
           {activeTab === 'unit_Qualifications_summary' && <UnitQualificationsSummaryView />}
+          {activeTab === 'WeaponDashboard' && <WeaponDashboard />}
+          {activeTab === 'DavidDashboard' && <DavidDashboard />}
+          {activeTab === 'CommandDashboard' && <CommandDashboard />}
         </Layout>
       </UnitScopeProvider>
     </SystemUserProvider>
