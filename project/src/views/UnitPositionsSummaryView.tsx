@@ -169,14 +169,14 @@ export default function UnitPositionsStatusView() {
     return units.filter(u => u && u.parent_unit_id && String(u.parent_unit_id) === String(level2Id));
   }, [units, level2Id]);
 
-  // המסגרת הנבחרת כעת (אם לא נבחר כלום, היחידה הראשית ברמה 1 תיבחר כברירת מחדל או כולל)
+  // המסגרת הנבחרת כעת (אם לא נבחר כלום, מחזיר null כדי להציג את כלל החטיבה)
   const currentSelectedUnit = useMemo(() => {
     if (!Array.isArray(units)) return null;
     if (level3Id) return units.find(u => String(u.id) === String(level3Id)) || null;
     if (level2Id) return units.find(u => String(u.id) === String(level2Id)) || null;
     if (level1Id) return units.find(u => String(u.id) === String(level1Id)) || null;
-    return level1Units[0] || null; // ברירת מחדל גדוד ראשון
-  }, [units, level1Id, level2Id, level3Id, level1Units]);
+    return null; // ללא בחירה -> מציג את כלל החטיבה
+  }, [units, level1Id, level2Id, level3Id]);
 
   // חישוב סטטוס תקינה לכל תקן
   const statusMap = useMemo(() => {
@@ -221,9 +221,9 @@ export default function UnitPositionsStatusView() {
 
   // א. יחידות כפופות ישירות (Child Frameworks) למסגרת הנבחרת
   const childUnits = useMemo(() => {
-    if (!currentSelectedUnit) return [];
+    if (!currentSelectedUnit) return level1Units; // אם לא נבחרה יחידה, מציג את כל גדודי הרמה הראשונה (כלל החטיבה)
     return units.filter(u => u.parent_unit_id && String(u.parent_unit_id) === String(currentSelectedUnit.id));
-  }, [units, currentSelectedUnit]);
+  }, [units, currentSelectedUnit, level1Units]);
 
   // פונקציית עזר לחישוב מדדי מסגרת (כולל תתי היחידות שלה)
   const calculateUnitMetrics = useCallback((targetUnitId: string) => {
@@ -299,8 +299,6 @@ export default function UnitPositionsStatusView() {
 
   // ב. נתוני טבלת המסגרות הכפופות + מטה המסגרת הנוכחית
   const subFrameworksTableData = useMemo(() => {
-    if (!currentSelectedUnit) return [];
-
     const rows = childUnits.map(unit => {
       const stats = calculateUnitMetrics(String(unit.id));
       return {
@@ -312,37 +310,39 @@ export default function UnitPositionsStatusView() {
       };
     });
 
-    // חישוב מטה המסגרת (תקנים שמשויכים ישירות ליחידה ולא לתתי היחידות שלה)
-    const directPositions = positions.filter(
-      p => p.is_active && p.unit_id && String(p.unit_id) === String(currentSelectedUnit.id)
-    );
-    
-    if (directPositions.length > 0) {
-      let total = 0, assigned = 0, ready = 0, unqualified = 0, shortage = 0;
-      directPositions.forEach(p => {
-        total++;
-        const st = statusMap[String(p.id)];
-        if (st === 'READY') { assigned++; ready++; }
-        else if (st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED') { assigned++; unqualified++; }
-        else if (st === 'SHORTAGE') { shortage++; }
-      });
-      const manningRate = total > 0 ? (assigned / total) * 100 : 0;
-      const readinessRate = total > 0 ? (ready / total) * 100 : 0;
+    // אם נבחרה יחידה ספציפית, נחשב גם את מטה המסגרת שלה
+    if (currentSelectedUnit) {
+      const directPositions = positions.filter(
+        p => p.is_active && p.unit_id && String(p.unit_id) === String(currentSelectedUnit.id)
+      );
+      
+      if (directPositions.length > 0) {
+        let total = 0, assigned = 0, ready = 0, unqualified = 0, shortage = 0;
+        directPositions.forEach(p => {
+          total++;
+          const st = statusMap[String(p.id)];
+          if (st === 'READY') { assigned++; ready++; }
+          else if (st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED') { assigned++; unqualified++; }
+          else if (st === 'SHORTAGE') { shortage++; }
+        });
+        const manningRate = total > 0 ? (assigned / total) * 100 : 0;
+        const readinessRate = total > 0 ? (ready / total) * 100 : 0;
 
-      rows.unshift({
-        id: currentSelectedUnit.id + '_HQ',
-        name: `מפקדת ${currentSelectedUnit.name}`,
-        type: 'HEADQUARTERS',
-        isSelfMete: true,
-        totalPositions: total,
-        assignedCount: assigned,
-        readyCount: ready,
-        unqualifiedCount: unqualified,
-        shortageCount: shortage,
-        unassignedPersons: 0,
-        manningRate,
-        readinessRate
-      });
+        rows.unshift({
+          id: currentSelectedUnit.id + '_HQ',
+          name: `מפקדת ${currentSelectedUnit.name}`,
+          type: 'HEADQUARTERS',
+          isSelfMete: true,
+          totalPositions: total,
+          assignedCount: assigned,
+          readyCount: ready,
+          unqualifiedCount: unqualified,
+          shortageCount: shortage,
+          unassignedPersons: 0,
+          manningRate,
+          readinessRate
+        });
+      }
     }
 
     return rows;
@@ -376,13 +376,18 @@ export default function UnitPositionsStatusView() {
     };
   }, [subFrameworksTableData]);
 
- // ד. רשימת פערים משמעותיים בתפקידים - מאוחד לפי שש התפקיד בלבד ללא פירוט מסגרות
+  // ד. רשימת פערים משמעותיים בתפקידים - מאוחד לפי שש התפקיד בלבד ללא פירוט מסגרות
   const criticalGapsData = useMemo(() => {
-    if (!currentSelectedUnit) return [];
-
-    const unitIdsToInclude = new Set<string>([String(currentSelectedUnit.id)]);
-    const descSet = descendantMaps[currentSelectedUnit.id];
-    if (descSet) descSet.forEach(id => unitIdsToInclude.add(String(id)));
+    const unitIdsToInclude = new Set<string>();
+    
+    if (currentSelectedUnit) {
+      unitIdsToInclude.add(String(currentSelectedUnit.id));
+      const descSet = descendantMaps[currentSelectedUnit.id];
+      if (descSet) descSet.forEach(id => unitIdsToInclude.add(String(id)));
+    } else {
+      // אם אין יחידה נבחרת, נכלול את כלל יחידות המערכת
+      units.forEach(u => unitIdsToInclude.add(String(u.id)));
+    }
 
     const scopedPositions = positions.filter(
       p => p.is_active && p.unit_id && unitIdsToInclude.has(String(p.unit_id))
@@ -417,7 +422,7 @@ export default function UnitPositionsStatusView() {
       .filter(g => g.gapCount > 0)
       .sort((a, b) => b.gapCount - a.gapCount)
       .slice(0, 10); // מציג את 10 הפערים הקריטיים ביותר
-  }, [currentSelectedUnit, descendantMaps, positions, statusMap]);
+  }, [currentSelectedUnit, descendantMaps, positions, statusMap, units]);
 
   // פונקציית צביעה מותנית לפי ספים
   const getReadinessBadgeColor = (rate: number) => {
@@ -431,10 +436,11 @@ export default function UnitPositionsStatusView() {
     if (isSelfMete) return; // מפקדה לא יורדת רמה נוספת
     
     // בדיקה באיזו רמה אנחנו כרגע וקידום לרמה הבאה
-    if (!level1Id || String(currentSelectedUnit?.id) === String(level1Id)) {
-      setLevel1Id(String(currentSelectedUnit?.id || level1Units[0]?.id));
+    if (!level1Id) {
+      setLevel1Id(frameworkId);
+    } else if (level1Id && !level2Id) {
       setLevel2Id(frameworkId);
-    } else if (String(currentSelectedUnit?.id) === String(level2Id)) {
+    } else if (level2Id && !level3Id) {
       setLevel3Id(frameworkId);
     }
   };
@@ -442,9 +448,11 @@ export default function UnitPositionsStatusView() {
   // חזרה רמה אחת למעלה בביצוע Drill Down
   const handleBreadcrumbClick = (level: number) => {
     if (level === 1) {
+      setLevel1Id('');
       setLevel2Id('');
       setLevel3Id('');
     } else if (level === 2) {
+      setLevel2Id('');
       setLevel3Id('');
     }
   };
@@ -469,7 +477,7 @@ export default function UnitPositionsStatusView() {
           </div>
           <h1 className="text-2xl font-black tracking-tight">תמונת איוש והשוואת מסגרות כפופות</h1>
           <p className="text-xs text-slate-300 mt-1">
-            ניתוח מעמיק של תקינה, איוש וכשירות עבור {currentSelectedUnit ? currentSelectedUnit.name : 'כלל היחידה'}
+            ניתוח מעמיק של תקינה, איוש וכשירות עבור {currentSelectedUnit ? currentSelectedUnit.name : 'כלל החטיבה (כלל המערכת)'}
           </p>
         </div>
 
@@ -494,7 +502,7 @@ export default function UnitPositionsStatusView() {
             onClick={() => { setLevel1Id(''); setLevel2Id(''); setLevel3Id(''); }}
             className={`hover:underline cursor-pointer ${!level1Id ? 'text-cyan-600 font-extrabold' : 'text-slate-600'}`}
           >
-            כלל המערכת
+            כלל החטיבה
           </button>
           
           {level1Id && (
@@ -577,7 +585,7 @@ export default function UnitPositionsStatusView() {
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-indigo-600" />
             <h3 className="text-base font-bold text-slate-900">
-              פירוט מסגרות כפופות – {currentSelectedUnit ? currentSelectedUnit.name : ''}
+              {currentSelectedUnit ? `פירוט מסגרות כפופות – ${currentSelectedUnit.name}` : 'סקירת כלל גדודי החטיבה'}
             </h3>
           </div>
           <span className="text-xs text-slate-400 font-medium">
