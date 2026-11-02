@@ -461,7 +461,7 @@ export default function MedicalDashboard() {
     [medicalPositions, medicalStatusMap, descendantMaps],
   );
 
-  // חישוב המדדים הכוללים ברמת הסקופ הנוכחי (מוגדר כהלכה ברמה העליונה)
+  // חישוב המדדים הכוללים ברמת הסקופ הנוכחי
   const overallMetrics = useMemo(() => {
     const allUnitIds = scopeDescendantIds || new Set(units.map((u) => u.id));
     const targetPositions = medicalPositions.filter(
@@ -507,7 +507,6 @@ export default function MedicalDashboard() {
     };
   }, [medicalPositions, medicalStatusMap, scopeDescendantIds, units]);
 
-  // אחוזים עבור הכרטיסיות העליונות
   const readinessPct = overallMetrics.totalMedicalPositions > 0
     ? Math.round((overallMetrics.qualified / overallMetrics.totalMedicalPositions) * 100)
     : 0;
@@ -518,7 +517,6 @@ export default function MedicalDashboard() {
 
   // א. יחידות כפופות ישירות + מטה המסגרת הנוכחית
   const subFrameworksTableData = useMemo(() => {
-    // אם לא נבחרה רמה 1 (כלל המערכת), נציג את כלל חטיבות האם/רמה 1 במערכת
     if (!level1Id) {
       return level1Units.map((unit) => {
         const stats = computeUnitMetrics(unit.id);
@@ -549,7 +547,6 @@ export default function MedicalDashboard() {
       };
     });
 
-    // מטה המסגרת הנוכחית
     const directPositions = medicalPositions.filter(
       (p) => p.unit_id && String(p.unit_id) === String(currentSelectedUnit.id),
     );
@@ -615,9 +612,8 @@ export default function MedicalDashboard() {
     };
   }, [subFrameworksTableData]);
 
-  // ד. פערים קריטיים בתפקידים רפואיים (כולל מאוישים ולא כשירים)
+  // ד. פערים קריטיים בתפקידים רפואיים (מתוקן לפי תקנים מאוישים, משובצים, ותקינה עודפת)
   const criticalMedicalGaps = useMemo(() => {
-    // אם לא נבחרה יחידה, ניקח את כלל התקנים הרפואיים בסקופ המערכתי
     const scopedPositions = (!level1Id) 
       ? medicalPositions 
       : medicalPositions.filter((p) => {
@@ -630,45 +626,64 @@ export default function MedicalDashboard() {
 
     const gapMap = new Map<string, { 
       positionTitle: string; 
-      totalReq: number; 
-      assignedCount: number;
-      readyCount: number; 
-      unqualifiedCount: number;
-      gapCount: number; 
+      totalReq: number;             // תקינה מוגדרת
+      assignedPersonsCount: number; // משובצים בפועל (סך האנשים)
+      mannedPositionsCount: number; // תקנים מאוישים בפועל (0/1)
+      overstaffedCount: number;     // תקינה עודפת
+      readyCount: number;           // כשירים בפועל
+      unqualifiedCount: number;     // מאוישים לא כשירים
+      positionGapCount: number;     // פער איוש תקן (0/1)
     }>();
+
+    const assignmentsByPositionMap = new Map<string, Assignment[]>();
+    rawAssignments.forEach((a) => {
+      const arr = assignmentsByPositionMap.get(a.position_id) || [];
+      arr.push(a);
+      assignmentsByPositionMap.set(a.position_id, arr);
+    });
 
     scopedPositions.forEach((p) => {
       const key = p.title.trim();
-      const st = medicalStatusMap[p.id]?.status;
+      const posAssignments = assignmentsByPositionMap.get(p.id) || [];
+      const personsCount = posAssignments.length;
+      const isManned = personsCount > 0 ? 1 : 0;
+      const overstaff = personsCount > 1 ? personsCount - 1 : 0;
 
-      const isAssigned = st === 'READY' || st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED';
+      const st = medicalStatusMap[p.id]?.status;
       const isReady = st === 'READY';
       const isUnqualified = st === 'UNQUALIFIED' || st === 'ACTING';
-      const isShortage = st === 'SHORTAGE';
+      const isShortage = st === 'SHORTAGE' || personsCount === 0;
 
-      const existing = gapMap.get(key) || {
-        positionTitle: p.title,
-        totalReq: 0,
-        assignedCount: 0,
-        readyCount: 0,
-        unqualifiedCount: 0,
-        gapCount: 0,
-      };
+      let existing = gapMap.get(key);
+      if (!existing) {
+        existing = {
+          positionTitle: p.title,
+          totalReq: 0,
+          assignedPersonsCount: 0,
+          mannedPositionsCount: 0,
+          overstaffedCount: 0,
+          readyCount: 0,
+          unqualifiedCount: 0,
+          positionGapCount: 0,
+        };
+      }
 
       existing.totalReq += 1;
-      if (isAssigned) existing.assignedCount += 1;
+      existing.assignedPersonsCount += personsCount;
+      existing.mannedPositionsCount += isManned;
+      existing.overstaffedCount += overstaff;
       if (isReady) existing.readyCount += 1;
       if (isUnqualified) existing.unqualifiedCount += 1;
-      if (isShortage) existing.gapCount += 1;
+      if (isShortage) existing.positionGapCount += 1;
 
       gapMap.set(key, existing);
     });
 
     return Array.from(gapMap.values())
-      .filter((g) => g.gapCount > 0 || g.unqualifiedCount > 0)
-      .sort((a, b) => b.gapCount - a.gapCount)
+      .filter((g) => g.positionGapCount > 0 || g.unqualifiedCount > 0 || g.overstaffedCount > 0)
+      .sort((a, b) => b.positionGapCount - a.positionGapCount)
       .slice(0, 10);
-  }, [level1Id, currentSelectedUnit, descendantMaps, medicalPositions, medicalStatusMap]);
+  }, [level1Id, currentSelectedUnit, descendantMaps, medicalPositions, medicalStatusMap, rawAssignments]);
 
   // ספי צבע מותנים
   const getReadinessBadgeColor = (rate: number) => {
@@ -677,7 +692,6 @@ export default function MedicalDashboard() {
     return 'bg-rose-100 text-rose-800 border-rose-300';
   };
 
-  // מנגנון Drill Down בלחיצה על שורת מסגרת
   const handleDrillDown = (frameworkId: string, isSelfMete: boolean) => {
     if (isSelfMete) return;
     if (!level1Id || String(currentSelectedUnit?.id) === String(level1Id)) {
@@ -973,197 +987,207 @@ export default function MedicalDashboard() {
         </div>
       </div>
       
-{/* טבלת מטריצה רוחבית: תפקידים רפואיים מול יחידות משנה ישירות */}
-  <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-      <div className="flex items-center gap-2 text-slate-900">
-        <Stethoscope className="w-5 h-5 text-rose-600" />
-        <h3 className="text-sm font-bold">פריסת תפקידים רפואיים לפי יחידות משנה (מאוישים / תקינה)</h3>
-      </div>
-      <span className="text-[11px] text-slate-400">השוואת איוש רוחבית ברמה אחת כלפי מטה</span>
-    </div>
+      {/* טבלת מטריצה רוחבית: תפקידים רפואיים מול יחידות משנה ישירות */}
+      <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-900">
+            <Stethoscope className="w-5 h-5 text-rose-600" />
+            <h3 className="text-sm font-bold">פריסת תפקידים רפואיים לפי יחידות משנה (מאוישים / תקינה)</h3>
+          </div>
+          <span className="text-[11px] text-slate-400">השוואת איוש רוחבית ברמה אחת כלפי מטה</span>
+        </div>
 
-    <div className="overflow-x-auto">
-      <table className="w-full text-right text-xs">
-        <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-          <tr>
-            <th className="p-2.5 pr-4 min-w-[160px]">תפקיד רפואי</th>
-            {subFrameworksTableData.map((subUnit) => (
-              <th key={subUnit.id} className="p-2.5 text-center min-w-[110px] border-r border-slate-200">
-                {subUnit.name}
-              </th>
-            ))}
-            <th className="p-2.5 text-center min-w-[90px] bg-slate-100 border-r-2 border-slate-300 font-black">
-              סה"כ מערכתי
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 font-medium">
-          {(() => {
-            const uniqueTitles = Array.from(new Set(medicalPositions.map(p => p.title.trim())));
-            
-            if (uniqueTitles.length === 0) {
-              return (
-                <tr>
-                  <td colSpan={subFrameworksTableData.length + 2} className="text-center py-5 text-slate-400">
-                    לא נמצאו תפקידים רפואיים להצגה במטריצה זו
-                  </td>
-                </tr>
-              );
-            }
-
-            const columnTotals: Record<string, { req: number; assigned: number }> = {};
-            subFrameworksTableData.forEach(subUnit => {
-              columnTotals[subUnit.id] = { req: 0, assigned: 0 };
-            });
-            let grandTotalReq = 0;
-            let grandTotalAssigned = 0;
-
-            const rowsMarkup = uniqueTitles.map((title) => {
-              let totalReqAll = 0;
-              let totalAssignedAll = 0;
-
-              return (
-                <tr key={title} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="p-2 pr-4 font-bold text-slate-900 bg-slate-50/40 text-[11px]">{title}</td>
-                  
-                  {subFrameworksTableData.map((subUnit) => {
-                    const descSet = descendantMaps[subUnit.id] || new Set();
-                    const unitSet = new Set<string>([String(subUnit.id)]);
-                    descSet.forEach(id => unitSet.add(String(id)));
-
-                    const matchingPositions = medicalPositions.filter(
-                      p => p.title.trim() === title && p.unit_id && unitSet.has(String(p.unit_id))
-                    );
-
-                    const reqCount = matchingPositions.length;
-                    const assignedCount = matchingPositions.filter(p => {
-                      const st = medicalStatusMap[p.id]?.status;
-                      return st === 'READY' || st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED';
-                    }).length;
-
-                    totalReqAll += reqCount;
-                    totalAssignedAll += assignedCount;
-
-                    columnTotals[subUnit.id].req += reqCount;
-                    columnTotals[subUnit.id].assigned += assignedCount;
-
-                    grandTotalReq += reqCount;
-                    grandTotalAssigned += assignedCount;
-
-                    const hasGap = assignedCount < reqCount;
-
-                    return (
-                      <td key={subUnit.id} className="p-2 text-center border-r border-slate-100">
-                        {reqCount === 0 ? (
-                          <span className="text-slate-300">-</span>
-                        ) : (
-                          <span 
-                            dir="ltr" 
-                            className={`px-1.5 py-0.5 rounded-md font-bold inline-block text-[11px] ${
-                              hasGap ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
-                            {assignedCount} / {reqCount}
-                          </span>
-                        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-right text-xs">
+            <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+              <tr>
+                <th className="p-2.5 pr-4 min-w-[160px]">תפקיד רפואי</th>
+                {subFrameworksTableData.map((subUnit) => (
+                  <th key={subUnit.id} className="p-2.5 text-center min-w-[110px] border-r border-slate-200">
+                    {subUnit.name}
+                  </th>
+                ))}
+                <th className="p-2.5 text-center min-w-[90px] bg-slate-100 border-r-2 border-slate-300 font-black">
+                  סה"כ מערכתי
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {(() => {
+                const uniqueTitles = Array.from(new Set(medicalPositions.map(p => p.title.trim())));
+                
+                if (uniqueTitles.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={subFrameworksTableData.length + 2} className="text-center py-5 text-slate-400">
+                        לא נמצאו תפקידים רפואיים להצגה במטריצה זו
                       </td>
-                    );
-                  })}
+                    </tr>
+                  );
+                }
 
-                  <td className="p-2 text-center bg-slate-50/70 border-r-2 border-slate-200 font-black text-slate-900 text-[11px]">
-                    <span dir="ltr" className={`inline-block ${totalAssignedAll < totalReqAll ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {totalAssignedAll} / {totalReqAll}
-                    </span>
-                  </td>
-                </tr>
-              );
-            });
+                const columnTotals: Record<string, { req: number; assigned: number }> = {};
+                subFrameworksTableData.forEach(subUnit => {
+                  columnTotals[subUnit.id] = { req: 0, assigned: 0 };
+                });
+                let grandTotalReq = 0;
+                let grandTotalAssigned = 0;
 
-            return (
-              <>
-                {rowsMarkup}
-                <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
-                  <td className="p-2.5 pr-4 text-xs">סה"כ ליחידות משנה</td>
-                  {subFrameworksTableData.map((subUnit) => {
-                    const col = columnTotals[subUnit.id];
-                    const hasColGap = col.assigned < col.req;
-                    return (
-                      <td key={subUnit.id} className="p-2.5 text-center border-r border-slate-300 text-xs">
-                        <span dir="ltr" className={`inline-block ${hasColGap ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          {col.assigned} / {col.req}
+                const rowsMarkup = uniqueTitles.map((title) => {
+                  let totalReqAll = 0;
+                  let totalAssignedAll = 0;
+
+                  return (
+                    <tr key={title} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-2 pr-4 font-bold text-slate-900 bg-slate-50/40 text-[11px]">{title}</td>
+                      
+                      {subFrameworksTableData.map((subUnit) => {
+                        const descSet = descendantMaps[subUnit.id] || new Set();
+                        const unitSet = new Set<string>([String(subUnit.id)]);
+                        descSet.forEach(id => unitSet.add(String(id)));
+
+                        const matchingPositions = medicalPositions.filter(
+                          p => p.title.trim() === title && p.unit_id && unitSet.has(String(p.unit_id))
+                        );
+
+                        const reqCount = matchingPositions.length;
+                        const assignedCount = matchingPositions.filter(p => {
+                          const st = medicalStatusMap[p.id]?.status;
+                          return st === 'READY' || st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED';
+                        }).length;
+
+                        totalReqAll += reqCount;
+                        totalAssignedAll += assignedCount;
+
+                        columnTotals[subUnit.id].req += reqCount;
+                        columnTotals[subUnit.id].assigned += assignedCount;
+
+                        grandTotalReq += reqCount;
+                        grandTotalAssigned += assignedCount;
+
+                        const hasGap = assignedCount < reqCount;
+
+                        return (
+                          <td key={subUnit.id} className="p-2 text-center border-r border-slate-100">
+                            {reqCount === 0 ? (
+                              <span className="text-slate-300">-</span>
+                            ) : (
+                              <span 
+                                dir="ltr" 
+                                className={`px-1.5 py-0.5 rounded-md font-bold inline-block text-[11px] ${
+                                  hasGap ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                {assignedCount} / {reqCount}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      <td className="p-2 text-center bg-slate-50/70 border-r-2 border-slate-200 font-black text-slate-900 text-[11px]">
+                        <span dir="ltr" className={`inline-block ${totalAssignedAll < totalReqAll ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {totalAssignedAll} / {totalReqAll}
                         </span>
                       </td>
-                    );
-                  })}
-                  <td className="p-2.5 text-center bg-slate-200 border-r-2 border-slate-300 text-xs">
-                    <span dir="ltr" className={`inline-block ${grandTotalAssigned < grandTotalReq ? 'text-rose-700' : 'text-emerald-700'}`}>
-                      {grandTotalAssigned} / {grandTotalReq}
-                    </span>
-                  </td>
-                </tr>
-              </>
-            );
-          })()}
-        </tbody>
-      </table>
-    </div>
-  </div>
+                    </tr>
+                  );
+                });
 
-
+                return (
+                  <>
+                    {rowsMarkup}
+                    <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                      <td className="p-2.5 pr-4 text-xs">סה"כ ליחידות משנה</td>
+                      {subFrameworksTableData.map((subUnit) => {
+                        const col = columnTotals[subUnit.id];
+                        const hasColGap = col.assigned < col.req;
+                        return (
+                          <td key={subUnit.id} className="p-2.5 text-center border-r border-slate-300 text-xs">
+                            <span dir="ltr" className={`inline-block ${hasColGap ? 'text-rose-700' : 'text-emerald-700'}`}>
+                              {col.assigned} / {col.req}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="p-2.5 text-center bg-slate-200 border-r-2 border-slate-300 text-xs">
+                        <span dir="ltr" className={`inline-block ${grandTotalAssigned < grandTotalReq ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          {grandTotalAssigned} / {grandTotalReq}
+                        </span>
+                      </td>
+                    </tr>
+                  </>
+                );
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
       
-      {/* ד. פערים קריטיים בתפקידים רפואיים */}
+      {/* ד. פערים קריטיים בתפקידים רפואיים (מתוקן) */}
       <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-rose-700">
             <AlertCircle className="w-5 h-5" />
             <h3 className="text-base font-bold text-slate-900">פערים רפואיים קריטיים בתפקידים</h3>
           </div>
-          <span className="text-xs text-slate-400">ריכוז איוש, כשירות ופערי תקינה בתפקידים רפואיים</span>
+          <span className="text-xs text-slate-400">ריכוז איוש, כשירות, תקינה עודפת ופערי תקנים</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
               <tr>
-                <th className="p-3.5 pr-5">תפקיד רפואי</th>
-                <th className="p-3.5 text-center">תקינה מוגדרת</th>
-                <th className="p-3.5 text-center text-blue-700">מאוישים בפועל</th>
-                <th className="p-3.5 text-center text-emerald-600">כשירים בפועל</th>
-                <th className="p-3.5 text-center text-amber-600">מאוישים לא כשירים</th>
-                <th className="p-3.5 text-center text-rose-600">פער איוש</th>
+                <th className="p-2.5 pr-5">תפקיד רפואי</th>
+                <th className="p-2.5 text-center">תקינה מוגדרת</th>
+                <th className="p-2.5 text-center text-blue-700">משובצים</th>
+                <th className="p-2.5 text-center text-blue-900">תקנים מאוישים בפועל</th>
+                <th className="p-2.5 text-center text-purple-700">תקינה עודפת</th>
+                <th className="p-2.5 text-center text-emerald-600">כשירים בפועל</th>
+                <th className="p-2.5 text-center text-amber-600">מאוישים לא כשירים</th>
+                <th className="p-2.5 text-center text-rose-600">פער איוש תקן</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {criticalMedicalGaps.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-slate-400">
+                  <td colSpan={8} className="text-center py-6 text-slate-400">
                     לא נמצאו פערים רפואיים קריטיים במסגרת זו
                   </td>
                 </tr>
               ) : (
                 criticalMedicalGaps.map((gap, idx) => (
                   <tr key={idx} className="hover:bg-rose-50/30 transition-colors">
-                    <td className="p-3.5 pr-5 font-bold text-slate-900">{gap.positionTitle}</td>
-                    <td className="p-3.5 text-center text-slate-700 font-bold">{gap.totalReq}</td>
-                    <td className="p-3.5 text-center text-blue-700 font-bold">{gap.assignedCount}</td>
-                    <td className="p-3.5 text-center text-emerald-600 font-bold">{gap.readyCount}</td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-2 pr-5 font-bold text-slate-900">{gap.positionTitle}</td>
+                    <td className="p-2 text-center text-slate-700 font-bold">{gap.totalReq}</td>
+                    <td className="p-2 text-center text-blue-700 font-bold">{gap.assignedPersonsCount}</td>
+                    <td className="p-2 text-center text-blue-900 font-bold">{gap.mannedPositionsCount}</td>
+                    <td className="p-2 text-center">
+                      {gap.overstaffedCount > 0 ? (
+                        <span className="bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-lg font-bold text-[11px]">
+                          +{gap.overstaffedCount}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">0</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-center text-emerald-600 font-bold">{gap.readyCount}</td>
+                    <td className="p-2 text-center">
                       {gap.unqualifiedCount > 0 ? (
-                        <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-0.5 rounded-lg font-bold">
+                        <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-lg font-bold text-[11px]">
                           {gap.unqualifiedCount}
                         </span>
                       ) : (
-                        <span className="text-slate-400">0</span>
+                        <span className="text-slate-300">0</span>
                       )}
                     </td>
-                    <td className="p-3.5 text-center text-rose-600 font-black text-sm">
-                      {gap.gapCount > 0 ? (
-                        <span className="bg-rose-50 border border-rose-200 px-3 py-1 rounded-xl">
-                          {gap.gapCount}-
+                    <td className="p-2 text-center text-rose-600 font-black text-xs">
+                      {gap.positionGapCount > 0 ? (
+                        <span dir="ltr" className="bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-lg inline-block">
+                          -{gap.positionGapCount}
                         </span>
                       ) : (
-                        <span className="text-emerald-600 text-xs">תקין (0)</span>
+                        <span className="text-emerald-600 text-[11px]">תקין (0)</span>
                       )}
                     </td>
                   </tr>
