@@ -39,6 +39,95 @@ const BATTALIONS = [
   { id: 'bat-5', name: 'גדוד 1895' },
 ];
 
+// הגדרת התקנים הקבועים מאחורי הקלעים לכל גדוד (Hardcoded) לפי מזהי ה-ID מטבלת positions
+const FIXED_BATTALION_MAPPINGS: Record<string, Record<string, string>> = {
+  'bat-1': {
+    bc: '2',          // מג"ד
+    dac: '3',         // סמג"ד א'
+    dacB: '4',        // סמג"ד ב'
+    coA: '211',       // מ"פ א'
+    coB: '213',       // מ"פ ב'
+    coC: '310',       // מ"פ ג'
+    coD: '407',       // מ"פ ד'
+    opsOfficer: '527',// ק. אג"ם
+    opsAsst: '528',   // קמב"צ
+    intel: '546',     // קמ"ן
+    comms: '554',     // קשר"ג
+    hqAdmin: '576',   // מפ"מ
+    personnel: '504', // ק. משא"ן
+    logistics: '625', // קל"ג
+    medical: '629',   // קרפ"ג
+  },
+  'bat-2': {
+    bc: '847',        // מג"ד
+    dac: '846',       // סמג"ד א'
+    dacB: '845',      // סמג"ד ב'
+    coA: '865',       // מ"פ א'
+    coB: '854',       // מ"פ ב'
+    coC: '850',       // מ"פ ג'
+    coD: '848',       // מ"פ ד'
+    opsOfficer: '861',// ק. אג"ם
+    opsAsst: '863',   // קמב"צ
+    intel: '899',     // קמ"ן
+    comms: '935',     // קשר"ג
+    hqAdmin: '853',   // מפ"מ
+    personnel: '907', // ק. משא"ן
+    logistics: '919', // קל"ג
+    medical: '925',   // קרפ"ג
+  },
+  'bat-3': {
+    bc: '1405',       // מג"ד
+    dac: '1404',      // סמג"ד א'
+    dacB: '1403',     // סמג"ד ב'
+    coA: '1423',      // מ"פ א'
+    coB: '1412',      // מ"פ ב'
+    coC: '1408',      // מ"פ ג'
+    coD: '1406',      // מ"פ ד'
+    opsOfficer: '1419',// ק. אג"ם
+    opsAsst: '1421',  // קמב"צ
+    intel: '1457',    // קמ"ן
+    comms: '1493',    // קשר"ג
+    hqAdmin: '1411',  // מפ"מ
+    personnel: '1465',// ק. משא"ן
+    logistics: '1477',// קל"ג
+    medical: '1483',  // קרפ"ג
+  },
+  'bat-4': {
+    bc: '1963',       // מג"ד
+    dac: '1962',      // סמג"ד א'
+    dacB: '1961',     // סמג"ד ב'
+    coA: '1981',      // מ"פ א'
+    coB: '1970',      // מ"פ ב'
+    coC: '1966',      // מ"פ ג'
+    coD: '1964',      // מ"פ ד'
+    opsOfficer: '1977',// ק. אג"ם
+    opsAsst: '1979',  // קמב"צ
+    intel: '2015',    // קמ"ן
+    comms: '2051',    // קשר"ג
+    hqAdmin: '1969',  // מפ"מ
+    personnel: '2023',// ק. משא"ן
+    logistics: '2035',// קל"ג
+    medical: '2041',  // קרפ"ג
+  },
+  'bat-5': {
+    bc: '2521',       // מג"ד
+    dac: '2520',      // סמג"ד א'
+    dacB: '2519',     // סמג"ד ב'
+    coA: '2539',      // מ"פ א'
+    coB: '2528',      // מ"פ ב'
+    coC: '2524',      // מ"פ ג'
+    coD: '2522',      // מ"פ ד'
+    opsOfficer: '2535',// ק. אג"ם
+    opsAsst: '2537',  // קמב"צ
+    intel: '2573',    // קמ"ן
+    comms: '2609',    // קשר"ג
+    hqAdmin: '2527',  // מפ"מ
+    personnel: '2581',// ק. משא"ן
+    logistics: '2593',// קל"ג
+    medical: '2599',  // קרפ"ג
+  },
+};
+
 export default function BattalionView1() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [allPositions, setAllPositions] = useState<Position[]>([]);
@@ -49,9 +138,6 @@ export default function BattalionView1() {
   // בחירת הגדוד הפעיל כרגע (מתוך ה-5)
   const [selectedBatId, setSelectedBatId] = useState<string>('bat-1');
 
-  // מילונים נפרדים לכל גדוד כדי שכל כפתור ישמור את המיפוי שלו ב-localStorage
-  const [battalionMappings, setBattalionMappings] = useState<Record<string, Record<string, string>>>({});
-  
   const [isEditingHqMapping, setIsEditingHqMapping] = useState(false);
   const [savedHqViews, setSavedHqViews] = useState<{ name: string; mapping: Record<string, string> }[]>([]);
   const [viewNameInput, setViewNameInput] = useState('');
@@ -60,7 +146,52 @@ export default function BattalionView1() {
   const [filterLevel2, setFilterLevel2] = useState<string>(''); 
   const [filterLevel3, setFilterLevel3] = useState<string>(''); 
 
-  // טעינת ההגדרות והמיפויים מ-localStorage עבור כל 5 הגדודים
+  const fetchAllPersons = async () => {
+    let allData: Person[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase.from('persons').select('*').range(from, from + step - 1);
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+  
+  const fetchAllPositions = async () => {
+    let allData: Position[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('positions')
+        .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
+        .order('id', { ascending: true })
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -75,7 +206,6 @@ export default function BattalionView1() {
         const positionsData = await fetchAllPositions();
         setAllPositions(positionsData);
 
-        // שליפת כל דרישות התקנים בלולאה (עוקף לחלוטין את מגבלת ה-1000 של Supabase)
         let allRequirements: any[] = [];
         let reqFrom = 0;
         const reqStep = 1000;
@@ -148,22 +278,13 @@ export default function BattalionView1() {
     loadData();
   }, []);
 
-  const currentHqMapping = battalionMappings[selectedBatId] || {};
-
-  const updateHqMapping = (newMapping: Record<string, string>) => {
-    const updated = {
-      ...battalionMappings,
-      [selectedBatId]: newMapping
-    };
-    setBattalionMappings(updated);
-    localStorage.setItem(`org_tree_hq_mapping_${selectedBatId}`, JSON.stringify(newMapping));
-  };
+  // שליפת התקנים הקבועים מאחורי הקלעים לפי הגדוד הנבחר
+  const currentHqMapping = FIXED_BATTALION_MAPPINGS[selectedBatId] || {};
 
   const saveHqView = () => {
     if (!viewNameInput.trim()) return;
     const newViews = [...savedHqViews.filter(v => v.name !== viewNameInput), { name: viewNameInput, mapping: currentHqMapping }];
     setSavedHqViews(newViews);
-    localStorage.setItem('org_tree_saved_hq_views_all', JSON.stringify(newViews));
     setViewNameInput('');
     setIsEditingHqMapping(false);
   };
@@ -171,112 +292,7 @@ export default function BattalionView1() {
   const deleteHqView = (name: string) => {
     const newViews = savedHqViews.filter(v => v.name !== name);
     setSavedHqViews(newViews);
-    localStorage.setItem('org_tree_saved_hq_views_all', JSON.stringify(newViews));
   };
-
-  const fetchAllPersons = async () => {
-    let allData: Person[] = [];
-    let from = 0;
-    const step = 1000;
-    let keepFetching = true;
-
-    while (keepFetching) {
-      const { data, error } = await supabase.from('persons').select('*').range(from, from + step - 1);
-      if (error) break;
-      if (data && data.length > 0) {
-        allData = [...allData, ...data];
-        if (data.length < step) keepFetching = false;
-        else from += step;
-      } else {
-        keepFetching = false;
-      }
-    }
-    return allData;
-  };
-  
-  const fetchAllPositions = async () => {
-    let allData: Position[] = [];
-    let from = 0;
-    const step = 1000;
-    let keepFetching = true;
-
-    while (keepFetching) {
-      const { data, error } = await supabase
-        .from('positions')
-        .select('*')
-        .order('display_order', { ascending: true, nullsFirst: false })
-        .order('id', { ascending: true })
-        .range(from, from + step - 1);
-
-      if (error) break;
-      if (data && data.length > 0) {
-        allData = [...allData, ...data];
-        if (data.length < step) keepFetching = false;
-        else from += step;
-      } else {
-        keepFetching = false;
-      }
-    }
-    return allData;
-  };
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [unitRes, assignRes, reqsRes, personQualsRes, personsData] = await Promise.all([
-          supabase.from('units').select('*').order('name'),
-          supabase.from('assignments').select('*, persons(*)'),
-          supabase.from('position_requirements').select('*, qualifications(*)'),
-          supabase.from('person_qualifications').select('*, qualifications(*)'),
-          fetchAllPersons(),
-        ]);
-
-        if (unitRes.data) setUnits(unitRes.data);
-        const positionsData = await fetchAllPositions();
-        setAllPositions(positionsData);
-        if (reqsRes.data) setPositionReqs(reqsRes.data);
-
-        const personsMap = new Map<string, Person>();
-        if (personsData) {
-          personsData.forEach(p => personsMap.set(String(p.id), p));
-        }
-
-        const qualsMap: Record<string, string[]> = {};
-        if (personQualsRes.data) {
-          personQualsRes.data.forEach((pq: any) => {
-            const pid = String(pq.person_id);
-            if (!qualsMap[pid]) qualsMap[pid] = [];
-            const qName = pq.qualifications?.name || pq.qualification_name;
-            if (qName) qualsMap[pid].push(qName);
-          });
-        }
-        setPersonQualsMap(qualsMap);
-
-        const assignMap: Record<string, Person[]> = {};
-        if (assignRes.data) {
-          const activeAssignments = (assignRes.data as any[]).filter(a => a.is_active === true);
-          activeAssignments.forEach((a) => {
-            let pObj = a.persons || a.person;
-            if (Array.isArray(pObj)) pObj = pObj[0];
-            if (!pObj && a.person_id) pObj = personsMap.get(String(a.person_id));
-
-            if (a.position_id && pObj) {
-              const posKey = String(a.position_id);
-              if (!assignMap[posKey]) assignMap[posKey] = [];
-              if (!assignMap[posKey].some(p => String(p.id) === String(pObj.id))) {
-                assignMap[posKey].push(pObj as Person);
-              }
-            }
-          });
-          setActiveAssignmentsMap(assignMap as any);
-        }
-      } catch (err) {
-        console.error('Error loading battalion view data:', err);
-      }
-    };
-
-    loadData();
-  }, []);
 
   const currentBatObj = BATTALIONS.find(b => b.id === selectedBatId) || BATTALIONS[0];
 
@@ -351,7 +367,7 @@ export default function BattalionView1() {
     <div className="space-y-4">
       <div className="card p-6 space-y-6 min-h-[650px] bg-white border-slate-200 flex flex-col items-center">
         
-        {/* שורת 5 הכפתורים בחלק העליון (איפה שביקשת) */}
+        {/* שורת 5 הכפתורים בחלק העליון */}
         <div className="w-full flex items-center justify-center gap-2 pb-4 border-b border-slate-200 flex-wrap">
           {BATTALIONS.map((bat) => {
             const isActive = bat.id === selectedBatId;
@@ -374,7 +390,7 @@ export default function BattalionView1() {
         <div className="w-full flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold text-amber-600">מטה {currentBatObj.name}</h3>
-            <p className="text-xs text-slate-500 mt-1">שדרת הפיקוד הראשית וחלוקה לענפים מבצעיים עבור {currentBatObj.name}</p>
+            <p className="text-xs text-slate-500 mt-1">שדרת הפיקוד הראשית וחלוקה לענפים מבצעיים עבור {currentBatObj.name} (מעודכן אוטומטית לפי תקני הגדוד)</p>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
@@ -385,132 +401,30 @@ export default function BattalionView1() {
               }`}
             >
               <Settings2 className="w-4 h-4" />
-              <span>{isEditingHqMapping ? 'סיום הגדרת תקנים' : 'שייך תקנים לתצוגה'}</span>
+              <span>{isEditingHqMapping ? 'סיום הצגת תקנים קבועים' : 'הצג תקנים מוגדרים'}</span>
             </button>
-
-            {savedHqViews.length > 0 && (
-              <select
-                onChange={(e) => {
-                  const found = savedHqViews.find(v => v.name === e.target.value);
-                  if (found) updateHqMapping(found.mapping);
-                }}
-                className="bg-slate-50 text-slate-800 text-xs px-3 py-1.5 rounded-lg border border-slate-300 outline-none"
-                defaultValue=""
-              >
-                <option value="" disabled>טען תצוגה שמורה...</option>
-                {savedHqViews.map((v) => (
-                  <option key={v.name} value={v.name}>{v.name}</option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
 
         {isEditingHqMapping && (
           <div className="w-full bg-slate-50 border border-amber-300 p-4 rounded-xl space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-amber-800">הגדרת התקנים למשבצות המטה עבור {currentBatObj.name}</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="שם תצוגה לשמירה..."
-                  value={viewNameInput}
-                  onChange={(e) => setViewNameInput(e.target.value)}
-                  className="bg-white text-xs text-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 outline-none w-60"
-                />
-                <button
-                  onClick={saveHqView}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>שמור תצוגה</span>
-                </button>
-              </div>
+              <span className="text-sm font-bold text-amber-800">תקני מטה קבועים עבור {currentBatObj.name} (מוגדרים בקוד)</span>
             </div>
-
-            <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <Filter className="w-3.5 h-3.5 text-amber-600" />
-                <span>סינון היררכי לבחירת תקנים (רמה 1 ➔ רמה 2 ➔ רמה 3):</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <select
-                  value={filterLevel1}
-                  onChange={(e) => { setFilterLevel1(e.target.value); setFilterLevel2(''); setFilterLevel3(''); }}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none"
-                >
-                  <option value="">-- רמה 1: בחר יחידה ראשית (גדוד) --</option>
-                  {level1Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-
-                <select
-                  value={filterLevel2}
-                  onChange={(e) => { setFilterLevel2(e.target.value); setFilterLevel3(''); }}
-                  disabled={!filterLevel1}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none disabled:opacity-50"
-                >
-                  <option value="">-- רמה 2: בחר יחידה כפופה --</option>
-                  {level2Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-
-                <select
-                  value={filterLevel3}
-                  onChange={(e) => setFilterLevel3(e.target.value)}
-                  disabled={!filterLevel2 || level3Units.length === 0}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none disabled:opacity-50"
-                >
-                  <option value="">-- רמה 3: בחר תת-יחידה --</option>
-                  {level3Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto p-1">
               {HQ_SLOTS.map((slot) => {
                 const currentPosId = currentHqMapping[slot.id] || '';
+                const posObj = allPositions.find(p => String(p.id) === String(currentPosId));
                 return (
                   <div key={slot.id} className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
                     <span className="text-xs font-bold text-slate-700 block">{slot.label}</span>
-                    <select
-                      value={currentPosId}
-                      onChange={(e) => updateHqMapping({ ...currentHqMapping, [slot.id]: e.target.value })}
-                      className="w-full bg-slate-50 text-xs text-slate-800 p-1.5 rounded border border-slate-300 outline-none"
-                    >
-                      <option value="">-- בחר תקן --</option>
-                      {filteredPositionsForDropdown.map((pos) => {
-  const assignedList = activeAssignmentsMap[String(pos.id)];
-  // שליפת החייל הראשון מהמערך במידה וקיים
-  const assignedPerson = Array.isArray(assignedList) ? assignedList[0] : assignedList;
-  const personLabel = assignedPerson ? ` (${getFullName(assignedPerson)})` : ' (לא מאויש)';
-  return (
-    <option key={pos.id} value={pos.id}>{pos.title}{personLabel}</option>
-  );
-})}
-                    </select>
+                    <div className="w-full bg-slate-100 text-xs text-slate-800 p-1.5 rounded border border-slate-300 font-medium">
+                      {posObj ? `${posObj.title} (ID: ${posObj.id})` : 'לא הוגדר תקן'}
+                    </div>
                   </div>
                 );
               })}
             </div>
-
-            {savedHqViews.length > 0 && (
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-200 flex-wrap">
-                <span className="text-xs text-slate-600">תצורות שמורות:</span>
-                {savedHqViews.map((v) => (
-                  <div key={v.name} className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-xs text-slate-800">
-                    <span>{v.name}</span>
-                    <button onClick={() => deleteHqView(v.name)} className="text-red-500 hover:text-red-700 p-0.5">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
