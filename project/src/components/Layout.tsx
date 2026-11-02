@@ -27,6 +27,10 @@ export type TabId =
   | 'unit_summary'
   | 'unit_Position_summary'
   | 'unit_Qualifications_summary'
+  | 'BulkPositionQualificationsMatrixView'
+  | 'WeaponDashboard'
+  | 'DavidDashboard'
+  | 'CommandDashboard'
   | 'qualifications-matrix';
 
 interface SubNavItem {
@@ -75,17 +79,21 @@ const NAV_CATEGORIES: NavCategory[] = [
     label: '4. חיתוכים יחידתיים', 
     icon: Layers, 
     items: [
-      { id: 'roster', label: 'א. ייעוד כוח' },
-      { id: 'medical', label: 'ב. תמונת מצב רפואי' },
-      { id: 'driving', label: 'ג. תמונת מצב נהגים והיתרים' },
-      { id: 'qualifications', label: 'ד. הסמכות נשקים' },
+      { id: 'DavidDashboard', label: 'א. ייעוד חטיבות דוד' },
+      { id: 'CommandDashboard', label: 'ב. תמונת מצב מפקדים' },
+      { id: 'medical', label: 'ג. תמונת מצב רפואי' },
+      { id: 'driving', label: 'ד. תמונת מצב נהגים והיתרים' },
+      { id: 'WeaponDashboard', label: 'ה. הסמכות נשקים' },
     ]
   },
   { 
     id: 'roster', 
     label: '5. מאגר כוח אדם', 
     icon: Users, 
-    directId: 'roster' 
+    items: [
+      { id: 'roster', label: 'א. מאגר כוח אדם' },
+      { id: 'BulkPositionQualificationsMatrixView', label: 'ב. הגדרת הסמכות למשתמשים' },
+    ]
   },
   { 
     id: 'parameters', 
