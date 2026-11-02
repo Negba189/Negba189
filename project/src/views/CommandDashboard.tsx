@@ -82,9 +82,9 @@ export default function CommandDashboard() {
   const [rawPersonQuals, setRawPersonQuals] = useState<PersonQualification[]>([]);
   const { descendantIds: scopeDescendantIds } = useUnitScope();
 
-  // שליפת כל התקנים בפעימות (עוקפת את מגבלת ה-1000 שורות)
-  const fetchAllPositions = async () => {
-    let allData: Position[] = [];
+// שליפת כל התקנים בפעימות עם מניעת כפילויות מוחלטת לפי ID של התקן
+const fetchAllPositions = async () => {
+    let allDataMap = new Map<string, Position>();
     let from = 0;
     const step = 1000;
     let keepFetching = true;
@@ -93,19 +93,30 @@ export default function CommandDashboard() {
       const { data, error } = await supabase
         .from('positions')
         .select('*, units(*)')
-        .order('title')
+        .order('id') // שינוי למיון לפי ID ליתר ביטחון
         .range(from, from + step - 1);
 
-      if (error) break;
+      if (error) {
+        console.error('Error fetching positions:', error);
+        break;
+      }
       if (data && data.length > 0) {
-        allData = [...allData, ...data];
+        data.forEach((p: Position) => {
+          allDataMap.set(String(p.id), p);
+          
+          // בדיקה נקודתית האם זה תקן ששייך לגדוד 1893 (או מתחיל ב-1893)
+          if (p.unit_id && String(p.unit_id).startsWith('1893')) {
+            console.log(`מצאתי תקן לגдוד 1893 בדאטה-בייס: ID=${p.id}, Title=${p.title}, UnitID=${p.unit_id}, Active=${p.is_active}`);
+          }
+        });
+
         if (data.length < step) keepFetching = false;
         else from += step;
       } else {
         keepFetching = false;
       }
     }
-    return allData;
+    return Array.from(allDataMap.values());
   };
 
   const fetchAllRequirements = async () => {
@@ -256,34 +267,46 @@ export default function CommandDashboard() {
     return map;
   }, [rawRequirements]);
 
-  // שילוב קטגוריית "פיקוד" (מלאה) + תפקידי "סמל" או "מ"כ" במדויק
+  // סינון מדויק + הדפסה לקונסול לצורך איתור זליגת תקנים בין הגדודים
   const commandPositions = useMemo(() => {
-    return allPositions.filter((p) => {
-      if (scopeDescendantIds && p.unit_id) {
+    const filtered = allPositions.filter((p) => {
+      if (!p.is_active) return false;
+
+      if (!level1Id && scopeDescendantIds && p.unit_id) {
         if (!scopeDescendantIds.has(p.unit_id)) return false;
       }
 
-      const title = (p.title || '').trim();
-      // בדיקה מדויקת לשמות התפקידים: מ"כ או סמל (ללא תוספות או הכרה גורפת בנגזרות ארוכות מדי שלא התבקשו)
-      const isExactCommandTitle = title === 'סמל' || title === 'מ"כ' || title === 'מכ';
-
-      // 1. בדיקה האם מוגדרת לתקן דרישת הסמכה או ששייך לקטגוריה "פיקוד" במדויק
       const posReqs = reqsByPositionMap.get(p.id) || [];
-      const hasCommandCategoryReq = posReqs.some((req) => {
+      
+      const hasCommandCategory = posReqs.some((req) => {
         const qual = req.qualifications;
         if (!qual) return false;
         const category = (qual.category || '').trim().toLowerCase();
         const qualName = (qual.name || '').trim().toLowerCase();
         
-        return (
-          category === 'פיקוד' ||
-          qualName.includes('פיקוד')
-        );
+        return category.includes('פיקוד') || qualName.includes('פיקוד');
       });
 
-      return isExactCommandTitle || hasCommandCategoryReq;
+      const title = (p.title || '').trim().toLowerCase();
+      const exactCommandTitles = [
+        'סמל', 'מ"כ', 'מכ', 'מ"מ', 'ממ', 'מ"פ', 'מפ', 
+        'מג"ד', 'מגד', 'מח"ט', 'מחט', 'מפקד', 'מפקד כיתה', 'מפקד מחלקה'
+      ];
+      const isExactCommandTitle = exactCommandTitles.includes(title);
+
+      return hasCommandCategory || isExactCommandTitle;
     });
-  }, [allPositions, scopeDescendantIds, reqsByPositionMap]);
+
+    // הדפסה לקונסול של כל התקנים שנשלפו יחד עם השם וה-unit_id שלהם
+    console.log('--- Command Positions Debug ---', filtered.map(p => ({
+      id: p.id,
+      title: p.title,
+      unit_id: p.unit_id,
+      unit_name: units.find(u => String(u.id) === String(p.unit_id))?.name || 'Unknown'
+    })));
+
+    return filtered;
+  }, [allPositions, scopeDescendantIds, level1Id, reqsByPositionMap, units]);
 
   // מפת סטטוס לכל תקן פיקודי
   const commandStatusMap = useMemo(() => {
@@ -359,69 +382,70 @@ export default function CommandDashboard() {
     return map;
   }, [commandPositions, rawAssignments, rawRequirements, rawPersonQuals, qualifications]);
 
-  // חישוב מדדים למסגרת נתונה
-  const computeUnitMetrics = useCallback(
-    (unitId: string): CommandMetrics => {
-      const descSet = descendantMaps[unitId] || new Set();
-      const unitSet = new Set<string>([String(unitId)]);
-      descSet.forEach((id) => unitSet.add(String(id)));
+ // חישוב מדדים למסגרת נתונה (מותאם בדיוק ללוגיקה של דף ההשוואה הכללי)
+  const computeUnitMetrics = useCallback((targetUnitId: string) => {
+    const descSet = descendantMaps[targetUnitId] || new Set();
+    const unitSet = new Set<string>([String(targetUnitId)]);
+    descSet.forEach(id => unitSet.add(String(id)));
 
-      const relevantPositions = commandPositions.filter(
-        (p) => p.unit_id && unitSet.has(String(p.unit_id)),
-      );
+    // שימוש ישיר ברשימת התקנים המסוננת (commandPositions) שכבר כוללת את p.is_active
+    const relevantPositions = commandPositions.filter(
+      p => p.unit_id && unitSet.has(String(p.unit_id))
+    );
 
-      let totalPositions = 0;
-      let assignedCount = 0;
-      let readyCount = 0;
-      let unqualifiedCount = 0;
-      let shortageCount = 0;
-      let overstaffedCount = 0;
-      let actingCount = 0;
+    let totalPositions = 0;
+    let assignedCount = 0;
+    let readyCount = 0;
+    let unqualifiedCount = 0;
+    let shortageCount = 0;
+    let overstaffedCount = 0;
 
-      relevantPositions.forEach((p) => {
-        totalPositions++;
-        const detail = commandStatusMap[p.id];
-        const status = detail?.status;
-        switch (status) {
-          case 'READY':
-            assignedCount++;
-            readyCount++;
-            break;
-          case 'UNQUALIFIED':
-            assignedCount++;
-            unqualifiedCount++;
-            break;
-          case 'ACTING':
-            assignedCount++;
-            actingCount++;
-            break;
-          case 'OVERSTAFFED':
-            assignedCount++;
-            overstaffedCount++;
-            break;
-          case 'SHORTAGE':
-            shortageCount++;
-            break;
-        }
-      });
+    const assignmentsCountByPos = new Map<string, number>();
+    rawAssignments.forEach(a => {
+      const pId = String(a.position_id);
+      assignmentsCountByPos.set(pId, (assignmentsCountByPos.get(pId) || 0) + 1);
+    });
 
-      const manningRate = totalPositions > 0 ? (assignedCount / totalPositions) * 100 : 0;
-      const readinessRate = totalPositions > 0 ? (readyCount / totalPositions) * 100 : 0;
+    relevantPositions.forEach(p => {
+      totalPositions++;
+      const pIdStr = String(p.id);
+      const detail = commandStatusMap[pIdStr];
+      const st = detail?.status;
+      const assignCount = assignmentsCountByPos.get(pIdStr) || 0;
 
-      return {
-        totalPositions,
-        assignedCount,
-        readyCount,
-        unqualifiedCount,
-        shortageCount,
-        overstaffedCount,
-        actingCount,
-        manningRate,
-        readinessRate,
-      };
-    },
-    [commandPositions, commandStatusMap, descendantMaps],
-  );
+      if (assignCount > 1) overstaffedCount += (assignCount - 1);
+
+      switch (st) {
+        case 'READY':
+          assignedCount++;
+          readyCount++;
+          break;
+        case 'UNQUALIFIED':
+        case 'ACTING':
+        case 'OVERSTAFFED':
+          assignedCount++;
+          unqualifiedCount++;
+          break;
+        case 'SHORTAGE':
+          shortageCount++;
+          break;
+      }
+    });
+
+    const manningRate = totalPositions > 0 ? (assignedCount / totalPositions) * 100 : 0;
+    const readinessRate = totalPositions > 0 ? (readyCount / totalPositions) * 100 : 0;
+
+    return {
+      totalPositions,
+      assignedCount,
+      readyCount,
+      unqualifiedCount,
+      shortageCount,
+      overstaffedCount,
+      manningRate,
+      readinessRate
+    };
+  }, [commandPositions, descendantMaps, rawAssignments, commandStatusMap]);
 
   // יחידות כפופות ישירות + מטה המסגרת הנוכחית
   const subFrameworksTableData = useMemo(() => {
@@ -520,7 +544,7 @@ export default function CommandDashboard() {
     };
   }, [subFrameworksTableData]);
 
-  // פערים קריטיים בתפקידי פיקוד (מצומצם לשורות עם פערים בלבד, כולל משובצים, תקנים מאוישים ותקינה עודפת)
+  // פערים קריטיים בתפקידי פיקוד
   const criticalCommandGaps = useMemo(() => {
     const scopedPositions = (!level1Id) 
       ? commandPositions 
@@ -638,7 +662,7 @@ export default function CommandDashboard() {
         <div>
           <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold mb-1">
             <Award className="w-4 h-4" />
-            <span>תמונת מצב פיקודית | קטגוריית פיקודי + סמל + מ"כ</span>
+            <span>תמונת מצב פיקודית | קטגוריית פיקוד + מ"כ / סמל בלבד</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight">סטטוס תקינה ואיוש פיקודי לפי מסגרות</h1>
           <p className="text-xs text-slate-300 mt-1">
@@ -1025,7 +1049,7 @@ export default function CommandDashboard() {
         </div>
       </div>
       
-      {/* ד. פערים קריטיים בתפקידי פיקוד (מצומצם ומעודכן) */}
+      {/* ד. פערים קריטיים בתפקידי פיקוד */}
       <div className="card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-700">
