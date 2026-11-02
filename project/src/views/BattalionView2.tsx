@@ -51,6 +51,45 @@ const BATTALIONS = [
   { id: 'bat-5', name: 'גדוד 1895' },
 ];
 
+// הגדרת התקנים הקבועים מאחורי הקלעים לפלוגות ולמטה עבור גדוד 1891 לפי מזהי ה-ID מטבלת positions
+const FIXED_COMPANIES_MAPPINGS: Record<string, Record<string, string>> = {
+  'bat-1': {
+    bcComp: '2', dacAComp: '3', dacBComp: '4',
+    coA: '211', deputyA: '212', platoonA1: '5', platoonA2: '155', platoonA3: '184',
+    coB: '213', deputyB: '214', platoonB1: '217', platoonB2: '254', platoonB3: '283',
+    coC: '310', deputyC: '311', platoonC1: '314', platoonC2: '351', platoonC3: '380',
+    coD: '407', deputyD: '408', platoonD1: '411', platoonD2: '448', platoonD3: '477',
+  },
+  'bat-2': {
+    bcComp: '847', dacAComp: '846', dacBComp: '845',
+    coA: '865', deputyA: '864', platoonA1: '965', platoonA2: '879', platoonA3: '3077',
+    coB: '854', deputyB: '855', platoonB1: '957', platoonB2: '870', platoonB3: '891',
+    coC: '850', deputyC: '851', platoonC1: '930', platoonC2: '945', platoonC3: '961',
+    coD: '848', deputyD: '849', platoonD1: '867', platoonD2: '883', platoonD3: '895',
+  },
+  'bat-3': {
+    bcComp: '1405', dacAComp: '1404', dacBComp: '1403',
+    coA: '1423', deputyA: '1422', platoonA1: '1523', platoonA2: '1437', platoonA3: '1459',
+    coB: '1412', deputyB: '1413', platoonB1: '1515', platoonB2: '1428', platoonB3: '1449',
+    coC: '1408', deputyC: '1409', platoonC1: '1488', platoonC2: '1503', platoonC3: '1519',
+    coD: '1406', deputyD: '1407', platoonD1: '1425', platoonD2: '1441', platoonD3: '1453',
+  },
+  'bat-4': {
+    bcComp: '1963', dacAComp: '1962', dacBComp: '1961',
+    coA: '1981', deputyA: '1980', platoonA1: '2081', platoonA2: '1995', platoonA3: '2017',
+    coB: '1970', deputyB: '1971', platoonB1: '2073', platoonB2: '1986', platoonB3: '2007',
+    coC: '1966', deputyC: '1967', platoonC1: '2046', platoonC2: '2061', platoonC3: '2077',
+    coD: '1964', deputyD: '1965', platoonD1: '1983', platoonD2: '1999', platoonD3: '2011',
+  },
+  'bat-5': {
+    bcComp: '2521', dacAComp: '2520', dacBComp: '2519',
+    coA: '2539', deputyA: '2538', platoonA1: '2639', platoonA2: '2553', platoonA3: '2575',
+    coB: '2528', deputyB: '2529', platoonB1: '2631', platoonB2: '2544', platoonB3: '2565',
+    coC: '2524', deputyC: '2525', platoonC1: '2604', platoonC2: '2619', platoonC3: '2635',
+    coD: '2522', deputyD: '2523', platoonD1: '2541', platoonD2: '2557', platoonD3: '2569',
+  },
+};
+
 export default function BattalionView2() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [allPositions, setAllPositions] = useState<Position[]>([]);
@@ -60,130 +99,13 @@ export default function BattalionView2() {
 
   // בחירת הגדוד הפעיל כרגע (מתוך ה-5)
   const [selectedBatId, setSelectedBatId] = useState<string>('bat-1');
-
-  // מילונים נפרדים לכל גדוד ב-localStorage
-  const [battalionMappings, setBattalionMappings] = useState<Record<string, Record<string, string>>>({});
   
   const [isEditingCompaniesMapping, setIsEditingCompaniesMapping] = useState(false);
   const [savedCompaniesViews, setSavedCompaniesViews] = useState<{ name: string; mapping: Record<string, string> }[]>([]);
-  const [companiesViewNameInput, setCompaniesViewNameInput] = useState('');
 
   const [filterLevel1, setFilterLevel1] = useState<string>(''); 
   const [filterLevel2, setFilterLevel2] = useState<string>(''); 
   const [filterLevel3, setFilterLevel3] = useState<string>(''); 
-
- useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [unitRes, assignRes, personQualsRes, personsData] = await Promise.all([
-          supabase.from('units').select('*').order('name'),
-          supabase.from('assignments').select('*, persons(*)'),
-          supabase.from('person_qualifications').select('*, qualifications(*)'),
-          fetchAllPersons(),
-        ]);
-
-        if (unitRes.data) setUnits(unitRes.data);
-        const positionsData = await fetchAllPositions();
-        setAllPositions(positionsData);
-
-        // שליפת כל דרישות התקנים בלולאה (עוקף לחלוטין את מגבלת ה-1000 של Supabase)
-        let allRequirements: any[] = [];
-        let reqFrom = 0;
-        const reqStep = 1000;
-        let keepFetchingReqs = true;
-
-        while (keepFetchingReqs) {
-          const { data: reqChunk, error: reqError } = await supabase
-            .from('position_requirements')
-            .select('*, qualifications(*)')
-            .range(reqFrom, reqFrom + reqStep - 1);
-
-          if (reqError) {
-            console.error('Error fetching requirements chunk in BattalionView2:', reqError);
-            break;
-          }
-
-          if (reqChunk && reqChunk.length > 0) {
-            allRequirements = [...allRequirements, ...reqChunk];
-            if (reqChunk.length < reqStep) {
-              keepFetchingReqs = false;
-            } else {
-              reqFrom += reqStep;
-            }
-          } else {
-            keepFetchingReqs = false;
-          }
-        }
-
-        setPositionReqs(allRequirements);
-
-        const personsMap = new Map<string, Person>();
-        if (personsData) {
-          personsData.forEach(p => personsMap.set(String(p.id), p));
-        }
-
-        const qualsMap: Record<string, string[]> = {};
-        if (personQualsRes.data) {
-          personQualsRes.data.forEach((pq: any) => {
-            const pid = String(pq.person_id);
-            if (!qualsMap[pid]) qualsMap[pid] = [];
-            const qName = pq.qualifications?.name || pq.qualification_name;
-            if (qName) qualsMap[pid].push(qName);
-          });
-        }
-        setPersonQualsMap(qualsMap);
-
-        const assignMap: Record<string, Person[]> = {};
-        if (assignRes.data) {
-          const activeAssignments = (assignRes.data as any[]).filter(a => a.is_active === true);
-          activeAssignments.forEach((a) => {
-            let pObj = a.persons || a.person;
-            if (Array.isArray(pObj)) pObj = pObj[0];
-            if (!pObj && a.person_id) pObj = personsMap.get(String(a.person_id));
-
-            if (a.position_id && pObj) {
-              const posKey = String(a.position_id);
-              if (!assignMap[posKey]) assignMap[posKey] = [];
-              if (!assignMap[posKey].some(p => String(p.id) === String(pObj.id))) {
-                assignMap[posKey].push(pObj as Person);
-              }
-            }
-          });
-          setActiveAssignmentsMap(assignMap as any);
-        }
-      } catch (err) {
-        console.error('Error loading companies view data:', err);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  const currentCompaniesMapping = battalionMappings[selectedBatId] || {};
-
-  const updateCompaniesMapping = (newMapping: Record<string, string>) => {
-    const updated = {
-      ...battalionMappings,
-      [selectedBatId]: newMapping
-    };
-    setBattalionMappings(updated);
-    localStorage.setItem(`org_tree_companies_mapping_${selectedBatId}`, JSON.stringify(newMapping));
-  };
-
-  const saveCompaniesView = () => {
-    if (!companiesViewNameInput.trim()) return;
-    const newViews = [...savedCompaniesViews.filter(v => v.name !== companiesViewNameInput), { name: companiesViewNameInput, mapping: currentCompaniesMapping }];
-    setSavedCompaniesViews(newViews);
-    localStorage.setItem('org_tree_saved_companies_views_all', JSON.stringify(newViews));
-    setCompaniesViewNameInput('');
-    setIsEditingCompaniesMapping(false);
-  };
-
-  const deleteCompaniesView = (name: string) => {
-    const newViews = savedCompaniesViews.filter(v => v.name !== name);
-    setSavedCompaniesViews(newViews);
-    localStorage.setItem('org_tree_saved_companies_views_all', JSON.stringify(newViews));
-  };
 
   const fetchAllPersons = async () => {
     let allData: Person[] = [];
@@ -289,6 +211,9 @@ export default function BattalionView2() {
     loadData();
   }, []);
 
+  // שליפת התקנים הקבועים מאחורי הקלעים לפי הגדוד הנבחר
+  const currentCompaniesMapping = FIXED_COMPANIES_MAPPINGS[selectedBatId] || {};
+
   const currentBatObj = BATTALIONS.find(b => b.id === selectedBatId) || BATTALIONS[0];
 
   const level1Units = useMemo(() => {
@@ -385,7 +310,7 @@ export default function BattalionView2() {
         <div className="w-full flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold text-emerald-600">פלוגות מבצעיות - {currentBatObj.name}</h3>
-            <p className="text-xs text-slate-500 mt-1">מבנה הפלוגות, הסמ"פים והמחלקות עבור {currentBatObj.name}</p>
+            <p className="text-xs text-slate-500 mt-1">מבנה הפלוגות, הסמ"פים והמחלקות עבור {currentBatObj.name} (מעודכן אוטומטית לפי תקני הגדוד)</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -396,131 +321,30 @@ export default function BattalionView2() {
               }`}
             >
               <Settings2 className="w-4 h-4" />
-              <span>{isEditingCompaniesMapping ? 'סיום הגדרת תקנים' : 'שייך תקנים לתצוגה'}</span>
+              <span>{isEditingCompaniesMapping ? 'סיום הצגת תקנים קבועים' : 'הצג תקנים מוגדרים'}</span>
             </button>
-
-            {savedCompaniesViews.length > 0 && (
-              <select
-                onChange={(e) => {
-                  const found = savedCompaniesViews.find(v => v.name === e.target.value);
-                  if (found) updateCompaniesMapping(found.mapping);
-                }}
-                className="bg-slate-50 text-slate-800 text-xs px-3 py-1.5 rounded-lg border border-slate-300 outline-none"
-                defaultValue=""
-              >
-                <option value="" disabled>טען תצוגה שמורה...</option>
-                {savedCompaniesViews.map((v) => (
-                  <option key={v.name} value={v.name}>{v.name}</option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
 
         {isEditingCompaniesMapping && (
           <div className="w-full bg-slate-50 border border-emerald-300 p-4 rounded-xl space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-emerald-800">הגדרת התקנים למשבצות הפלוגות המבצעיות עבור {currentBatObj.name}</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="שם תצוגה לשמירה..."
-                  value={companiesViewNameInput}
-                  onChange={(e) => setCompaniesViewNameInput(e.target.value)}
-                  className="bg-white text-xs text-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 outline-none w-60"
-                />
-                <button
-                  onClick={saveCompaniesView}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>שמור תצוגה</span>
-                </button>
-              </div>
+              <span className="text-sm font-bold text-emerald-800">תקני הפלוגות הקבועים עבור {currentBatObj.name} (מוגדרים בקוד)</span>
             </div>
-
-            <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <Filter className="w-3.5 h-3.5 text-emerald-600" />
-                <span>סינון היררכי לבחירת תקנים (רמה 1 ➔ רמה 2 ➔ רמה 3):</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <select
-                  value={filterLevel1}
-                  onChange={(e) => { setFilterLevel1(e.target.value); setFilterLevel2(''); setFilterLevel3(''); }}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none"
-                >
-                  <option value="">-- רמה 1: בחר יחידה ראשית (גדוד) --</option>
-                  {level1Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-
-                <select
-                  value={filterLevel2}
-                  onChange={(e) => { setFilterLevel2(e.target.value); setFilterLevel3(''); }}
-                  disabled={!filterLevel1}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none disabled:opacity-50"
-                >
-                  <option value="">-- רמה 2: בחר יחידה כפופה --</option>
-                  {level2Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-
-                <select
-                  value={filterLevel3}
-                  onChange={(e) => setFilterLevel3(e.target.value)}
-                  disabled={!filterLevel2 || level3Units.length === 0}
-                  className="bg-slate-50 text-xs text-slate-800 p-2 rounded border border-slate-300 outline-none disabled:opacity-50"
-                >
-                  <option value="">-- רמה 3: בחר תת-יחידה --</option>
-                  {level3Units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.unit_type})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto p-1">
               {COMPANIES_SLOTS.map((slot) => {
                 const currentPosId = currentCompaniesMapping[slot.id] || '';
+                const posObj = allPositions.find(p => String(p.id) === String(currentPosId));
                 return (
                   <div key={slot.id} className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
                     <span className="text-xs font-bold text-slate-700 block">{slot.label}</span>
-                    <select
-                      value={currentPosId}
-                      onChange={(e) => updateCompaniesMapping({ ...currentCompaniesMapping, [slot.id]: e.target.value })}
-                      className="w-full bg-slate-50 text-xs text-slate-800 p-1.5 rounded border border-slate-300 outline-none"
-                    >
-                      <option value="">-- בחר תקן --</option>
-                      {filteredPositionsForDropdown.map((pos) => {
-                        const assignedList = activeAssignmentsMap[String(pos.id)];
-                        const assignedPerson = Array.isArray(assignedList) ? assignedList[0] : assignedList;
-                        const personLabel = assignedPerson ? ` (${getFullName(assignedPerson)})` : ' (לא מאויש)';
-                        return (
-                          <option key={pos.id} value={pos.id}>{pos.title}{personLabel}</option>
-                        );
-                      })}
-                    </select>
+                    <div className="w-full bg-slate-100 text-xs text-slate-800 p-1.5 rounded border border-slate-300 font-medium">
+                      {posObj ? `${posObj.title} (ID: ${posObj.id})` : 'לא הוגדר תקן'}
+                    </div>
                   </div>
                 );
               })}
             </div>
-
-            {savedCompaniesViews.length > 0 && (
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-200 flex-wrap">
-                <span className="text-xs text-slate-600">תצורות שמורות:</span>
-                {savedCompaniesViews.map((v) => (
-                  <div key={v.name} className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-xs text-slate-800">
-                    <span>{v.name}</span>
-                    <button onClick={() => deleteCompaniesView(v.name)} className="text-red-500 hover:text-red-700 p-0.5">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
