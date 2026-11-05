@@ -241,7 +241,31 @@ export default function OrgTree() {
     return allData;
   };
 
-  // פונקציית שליפה מדורגת לכל השיבוצים (ללא הגבלת 1000 שורות)
+  // שליפה מדורגת מלאה להסמכות אישיות (עוקף את מגבלת ה-1000 שורות)
+  const fetchAllPersonQuals = async () => {
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('person_qualifications')
+        .select('*, qualifications(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
   const fetchAllAssignments = async () => {
     let allData: any[] = [];
     let from = 0;
@@ -268,9 +292,9 @@ export default function OrgTree() {
 
   const fetchUnits = useCallback(async () => {
     try {
-      const [unitRes, personQualsRes, personsData, assignmentsData] = await Promise.all([
+      const [unitRes, personQualsData, personsData, assignmentsData] = await Promise.all([
         supabase.from('units').select('*').order('name'),
-        supabase.from('person_qualifications').select('*, qualifications(*)'),
+        fetchAllPersonQuals(),
         fetchAllPersons(), 
         fetchAllAssignments(),
       ]);
@@ -325,8 +349,8 @@ export default function OrgTree() {
 
       const qualsMap: Record<string, string[]> = {};
       const qualsIdsMap: Record<string, string[]> = {};
-      if (personQualsRes.data) {
-        (personQualsRes.data as any[]).forEach(pq => {
+      if (personQualsData) {
+        (personQualsData as any[]).forEach(pq => {
           const pid = String(pq.person_id);
           if (!qualsMap[pid]) qualsMap[pid] = [];
           if (!qualsIdsMap[pid]) qualsIdsMap[pid] = [];
@@ -435,11 +459,7 @@ export default function OrgTree() {
 
     const personQuals = personQualsMap[String(person.id)] || [];
     const personQualIds = personQualsIdsMap[String(person.id)] || [];
-    const personQualsStr = [
-      ...personQuals,
-      (person as any).rank || '',
-      (person as any).profession || '',
-    ].map(s => String(s).trim().toLowerCase());
+    const personQualsNormalized = personQuals.map(s => String(s).trim().toLowerCase());
 
     return reqs.every(req => {
       if (req.qualification_id && personQualIds.map(String).includes(String(req.qualification_id))) {
@@ -447,7 +467,7 @@ export default function OrgTree() {
       }
       const qName = String(req.qualifications?.name || '').trim().toLowerCase();
       if (!qName) return true;
-      return personQualsStr.some(pq => pq.includes(qName));
+      return personQualsNormalized.some(pq => pq === qName || pq.includes(qName));
     });
   }, [positionReqs, personQualsMap, personQualsIdsMap]);
 
