@@ -51,7 +51,6 @@ const BATTALIONS = [
   { id: 'bat-5', name: 'גדוד 1895' },
 ];
 
-// הגדרת התקנים הקבועים מאחורי הקלעים לפלוגות ולמטה עבור גדוד 1891 לפי מזהי ה-ID מטבלת positions
 const FIXED_COMPANIES_MAPPINGS: Record<string, Record<string, string>> = {
   'bat-1': {
     bcComp: '2', dacAComp: '3', dacBComp: '4',
@@ -97,7 +96,6 @@ export default function BattalionView2() {
   const [positionReqs, setPositionReqs] = useState<any[]>([]);
   const [personQualsMap, setPersonQualsMap] = useState<Record<string, string[]>>({});
 
-  // בחירת הגדוד הפעיל כרגע (מתוך ה-5)
   const [selectedBatId, setSelectedBatId] = useState<string>('bat-1');
   
   const [isEditingCompaniesMapping, setIsEditingCompaniesMapping] = useState(false);
@@ -153,21 +151,73 @@ export default function BattalionView2() {
     return allData;
   };
 
+  const fetchAllPersonQuals = async () => {
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('person_qualifications')
+        .select('*, qualifications(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [unitRes, assignRes, reqsRes, personQualsRes, personsData] = await Promise.all([
+        const [unitRes, assignRes, personsData, personQualsData] = await Promise.all([
           supabase.from('units').select('*').order('name'),
           supabase.from('assignments').select('*, persons(*)'),
-          supabase.from('position_requirements').select('*, qualifications(*)'),
-          supabase.from('person_qualifications').select('*, qualifications(*)'),
           fetchAllPersons(),
+          fetchAllPersonQuals(),
         ]);
 
         if (unitRes.data) setUnits(unitRes.data);
         const positionsData = await fetchAllPositions();
         setAllPositions(positionsData);
-        if (reqsRes.data) setPositionReqs(reqsRes.data);
+
+        let allRequirements: any[] = [];
+        let reqFrom = 0;
+        const reqStep = 1000;
+        let keepFetchingReqs = true;
+
+        while (keepFetchingReqs) {
+          const { data: reqChunk, error: reqError } = await supabase
+            .from('position_requirements')
+            .select('*, qualifications(*)')
+            .range(reqFrom, reqFrom + reqStep - 1);
+
+          if (reqError) {
+            console.error('Error fetching requirements chunk:', reqError);
+            break;
+          }
+
+          if (reqChunk && reqChunk.length > 0) {
+            allRequirements = [...allRequirements, ...reqChunk];
+            if (reqChunk.length < reqStep) {
+              keepFetchingReqs = false;
+            } else {
+              reqFrom += reqStep;
+            }
+          } else {
+            keepFetchingReqs = false;
+          }
+        }
+
+        setPositionReqs(allRequirements);
 
         const personsMap = new Map<string, Person>();
         if (personsData) {
@@ -175,8 +225,8 @@ export default function BattalionView2() {
         }
 
         const qualsMap: Record<string, string[]> = {};
-        if (personQualsRes.data) {
-          personQualsRes.data.forEach((pq: any) => {
+        if (personQualsData) {
+          personQualsData.forEach((pq: any) => {
             const pid = String(pq.person_id);
             if (!qualsMap[pid]) qualsMap[pid] = [];
             const qName = pq.qualifications?.name || pq.qualification_name;
@@ -211,9 +261,7 @@ export default function BattalionView2() {
     loadData();
   }, []);
 
-  // שליפת התקנים הקבועים מאחורי הקלעים לפי הגדוד הנבחר
   const currentCompaniesMapping = FIXED_COMPANIES_MAPPINGS[selectedBatId] || {};
-
   const currentBatObj = BATTALIONS.find(b => b.id === selectedBatId) || BATTALIONS[0];
 
   const level1Units = useMemo(() => {
@@ -259,16 +307,12 @@ export default function BattalionView2() {
     if (reqs.length === 0) return true;
 
     const personQuals = personQualsMap[String(person.id)] || [];
-    const personQualsStr = [
-      ...personQuals,
-      (person as any).rank || '',
-      (person as any).profession || '',
-    ].map(s => String(s).toLowerCase());
+    const personQualsNormalized = personQuals.map(s => String(s).toLowerCase().trim());
 
     return reqs.every(req => {
-      const qName = (req.qualifications?.name || '').toLowerCase();
+      const qName = (req.qualifications?.name || req.qualification_name || '').toLowerCase().trim();
       if (!qName) return true;
-      return personQualsStr.some(pq => pq.includes(qName));
+      return personQualsNormalized.some(pq => pq === qName || pq.includes(qName));
     });
   };
 
