@@ -39,92 +39,91 @@ const BATTALIONS = [
   { id: 'bat-5', name: 'גדוד 1895' },
 ];
 
-// הגדרת התקנים הקבועים מאחורי הקלעים לכל גדוד (Hardcoded) לפי מזהי ה-ID מטבלת positions
 const FIXED_BATTALION_MAPPINGS: Record<string, Record<string, string>> = {
   'bat-1': {
-    bc: '2',          // מג"ד
-    dac: '3',         // סמג"ד א'
-    dacB: '4',        // סמג"ד ב'
-    coA: '211',       // מ"פ א'
-    coB: '213',       // מ"פ ב'
-    coC: '310',       // מ"פ ג'
-    coD: '407',       // מ"פ ד'
-    opsOfficer: '527',// ק. אג"ם
-    opsAsst: '528',   // קמב"צ
-    intel: '546',     // קמ"ן
-    comms: '554',     // קשר"ג
-    hqAdmin: '576',   // מפ"מ
-    personnel: '504', // ק. משא"ן
-    logistics: '625', // קל"ג
-    medical: '629',   // קרפ"ג
+    bc: '2',         
+    dac: '3',         
+    dacB: '4',        
+    coA: '211',       
+    coB: '213',       
+    coC: '310',       
+    coD: '407',       
+    opsOfficer: '527',
+    opsAsst: '528',   
+    intel: '546',     
+    comms: '554',     
+    hqAdmin: '576',   
+    personnel: '504', 
+    logistics: '625', 
+    medical: '629',   
   },
   'bat-2': {
-    bc: '847',        // מג"ד
-    dac: '846',       // סמג"ד א'
-    dacB: '845',      // סמג"ד ב'
-    coA: '865',       // מ"פ א'
-    coB: '854',       // מ"פ ב'
-    coC: '850',       // מ"פ ג'
-    coD: '848',       // מ"פ ד'
-    opsOfficer: '861',// ק. אג"ם
-    opsAsst: '863',   // קמב"צ
-    intel: '899',     // קמ"ן
-    comms: '935',     // קשר"ג
-    hqAdmin: '853',   // מפ"מ
-    personnel: '907', // ק. משא"ן
-    logistics: '919', // קל"ג
-    medical: '925',   // קרפ"ג
+    bc: '847',        
+    dac: '846',       
+    dacB: '845',      
+    coA: '865',       
+    coB: '854',       
+    coC: '850',       
+    coD: '848',       
+    opsOfficer: '861',
+    opsAsst: '863',   
+    intel: '899',     
+    comms: '935',     
+    hqAdmin: '853',   
+    personnel: '907', 
+    logistics: '919', 
+    medical: '925',   
   },
   'bat-3': {
-    bc: '1405',       // מג"ד
-    dac: '1404',      // סמג"ד א'
-    dacB: '1403',     // סמג"ד ב'
-    coA: '1423',      // מ"פ א'
-    coB: '1412',      // מ"פ ב'
-    coC: '1408',      // מ"פ ג'
-    coD: '1406',      // מ"פ ד'
-    opsOfficer: '1419',// ק. אג"ם
-    opsAsst: '1421',  // קמב"צ
-    intel: '1457',    // קמ"ן
-    comms: '1493',    // קשר"ג
-    hqAdmin: '1411',  // מפ"מ
-    personnel: '1465',// ק. משא"ן
-    logistics: '1477',// קל"ג
-    medical: '1483',  // קרפ"ג
+    bc: '1405',       
+    dac: '1404',      
+    dacB: '1403',     
+    coA: '1423',      
+    coB: '1412',      
+    coC: '1408',      
+    coD: '1406',      
+    opsOfficer: '1419',
+    opsAsst: '1421',  
+    intel: '1457',    
+    comms: '1493',    
+    hqAdmin: '1411',  
+    personnel: '1465',
+    logistics: '1477',
+    medical: '1483',  
   },
   'bat-4': {
-    bc: '1963',       // מג"ד
-    dac: '1962',      // סמג"ד א'
-    dacB: '1961',     // סמג"ד ב'
-    coA: '1981',      // מ"פ א'
-    coB: '1970',      // מ"פ ב'
-    coC: '1966',      // מ"פ ג'
-    coD: '1964',      // מ"פ ד'
-    opsOfficer: '1977',// ק. אג"ם
-    opsAsst: '1979',  // קמב"צ
-    intel: '2015',    // קמ"ן
-    comms: '2051',    // קשר"ג
-    hqAdmin: '1969',  // מפ"מ
-    personnel: '2023',// ק. משא"ן
-    logistics: '2035',// קל"ג
-    medical: '2041',  // קרפ"ג
+    bc: '1963',       
+    dac: '1962',      
+    dacB: '1961',     
+    coA: '1981',      
+    coB: '1970',      
+    coC: '1966',      
+    coD: '1964',      
+    opsOfficer: '1977',
+    opsAsst: '1979',  
+    intel: '2015',    
+    comms: '2051',    
+    hqAdmin: '1969',  
+    personnel: '2023',
+    logistics: '2035',
+    medical: '2041',  
   },
   'bat-5': {
-    bc: '2521',       // מג"ד
-    dac: '2520',      // סמג"ד א'
-    dacB: '2519',     // סמג"ד ב'
-    coA: '2539',      // מ"פ א'
-    coB: '2528',      // מ"פ ב'
-    coC: '2524',      // מ"פ ג'
-    coD: '2522',      // מ"פ ד'
-    opsOfficer: '2535',// ק. אג"ם
-    opsAsst: '2537',  // קמב"צ
-    intel: '2573',    // קמ"ן
-    comms: '2609',    // קשר"ג
-    hqAdmin: '2527',  // מפ"מ
-    personnel: '2581',// ק. משא"ן
-    logistics: '2593',// קל"ג
-    medical: '2599',  // קרפ"ג
+    bc: '2521',       
+    dac: '2520',      
+    dacB: '2519',     
+    coA: '2539',      
+    coB: '2528',      
+    coC: '2524',      
+    coD: '2522',      
+    opsOfficer: '2535',
+    opsAsst: '2537',  
+    intel: '2573',    
+    comms: '2609',    
+    hqAdmin: '2527',  
+    personnel: '2581',
+    logistics: '2593',
+    medical: '2599',  
   },
 };
 
@@ -135,7 +134,6 @@ export default function BattalionView1() {
   const [positionReqs, setPositionReqs] = useState<any[]>([]);
   const [personQualsMap, setPersonQualsMap] = useState<Record<string, string[]>>({});
 
-  // בחירת הגדוד הפעיל כרגע (מתוך ה-5)
   const [selectedBatId, setSelectedBatId] = useState<string>('bat-1');
 
   const [isEditingHqMapping, setIsEditingHqMapping] = useState(false);
@@ -216,14 +214,39 @@ export default function BattalionView1() {
     return allData;
   };
 
+  // הוספת פונקציית שליפה מדורגת מלאה לשיבוצים (עוקפת את מגבלת ה-1000 שורות)
+  const fetchAllAssignments = async () => {
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*, persons(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [unitRes, assignRes, personsData, personQualsData] = await Promise.all([
+        const [unitRes, personsData, personQualsData, assignmentsData] = await Promise.all([
           supabase.from('units').select('*').order('name'),
-          supabase.from('assignments').select('*, persons(*)'),
           fetchAllPersons(),
-          fetchAllPersonQuals(), // שימוש בפונקציה המדורגת המלאה כאן
+          fetchAllPersonQuals(),
+          fetchAllAssignments(), // שימוש בפונקציה המדורגת המלאה לשיבוצים
         ]);
 
         if (unitRes.data) setUnits(unitRes.data);
@@ -265,7 +288,6 @@ export default function BattalionView1() {
           personsData.forEach(p => personsMap.set(String(p.id), p));
         }
 
-        // בניית מפת ההסמכות מתוך כל הנתונים המלאים שהתקבלו בפעימות
         const qualsMap: Record<string, string[]> = {};
         if (personQualsData) {
           personQualsData.forEach((pq: any) => {
@@ -278,8 +300,8 @@ export default function BattalionView1() {
         setPersonQualsMap(qualsMap);
 
         const assignMap: Record<string, Person[]> = {};
-        if (assignRes.data) {
-          const activeAssignments = (assignRes.data as any[]).filter(a => a.is_active === true);
+        if (assignmentsData) {
+          const activeAssignments = (assignmentsData as any[]).filter(a => a.is_active === true);
           activeAssignments.forEach((a) => {
             let pObj = a.persons || a.person;
             if (Array.isArray(pObj)) pObj = pObj[0];
@@ -303,7 +325,6 @@ export default function BattalionView1() {
     loadData();
   }, []);
 
-  // שליפת התקנים הקבועים מאחורי הקלעים לפי הגדוד הנבחר
   const currentHqMapping = FIXED_BATTALION_MAPPINGS[selectedBatId] || {};
 
   const saveHqView = () => {
@@ -367,17 +388,11 @@ export default function BattalionView1() {
     const personQuals = personQualsMap[String(person.id)] || [];
     const personQualsNormalized = personQuals.map(s => String(s).toLowerCase().trim());
 
-    // דיאגנוסטיקה: הדפסה לקונסול כדי לראות למה יש פער
-    console.log(`Checking Position: ${position.title} (ID: ${position.id}) for Person: ${person.first_name} ${person.last_name} (ID: ${person.id})`);
-    console.log('Required Reqs:', reqs);
-    console.log('Person Quals Found:', personQualsNormalized);
-
     return reqs.every(req => {
       const qName = (req.qualifications?.name || req.qualification_name || '').toLowerCase().trim();
       if (!qName) return true;
       
       const hasIt = personQualsNormalized.some(pq => pq === qName || pq.includes(qName));
-      console.log(`Requirement "${qName}": Matched = ${hasIt}`);
       return hasIt;
     });
   };
