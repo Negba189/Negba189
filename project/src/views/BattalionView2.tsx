@@ -124,6 +124,30 @@ export default function BattalionView2() {
     }
     return allData;
   };
+
+const fetchAllAssignments = async () => {
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*, persons(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
   
   const fetchAllPositions = async () => {
     let allData: Position[] = [];
@@ -178,11 +202,11 @@ export default function BattalionView2() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [unitRes, assignRes, personsData, personQualsData] = await Promise.all([
+        const [unitRes, personsData, personQualsData, assignmentsData] = await Promise.all([
           supabase.from('units').select('*').order('name'),
-          supabase.from('assignments').select('*, persons(*)'),
           fetchAllPersons(),
           fetchAllPersonQuals(),
+          fetchAllAssignments(), // <-- שימוש בשליפה המדורגת המלאה
         ]);
 
         if (unitRes.data) setUnits(unitRes.data);
@@ -236,8 +260,8 @@ export default function BattalionView2() {
         setPersonQualsMap(qualsMap);
 
         const assignMap: Record<string, Person[]> = {};
-        if (assignRes.data) {
-          const activeAssignments = (assignRes.data as any[]).filter(a => a.is_active === true);
+        if (assignmentsData) {
+          const activeAssignments = (assignmentsData as any[]).filter(a => a.is_active === true);
           activeAssignments.forEach((a) => {
             let pObj = a.persons || a.person;
             if (Array.isArray(pObj)) pObj = pObj[0];
