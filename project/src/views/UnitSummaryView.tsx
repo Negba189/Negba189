@@ -312,7 +312,7 @@ export default function UnitSummaryView() {
 
             const status = statusMap[String(p.id)];
             if (status === 'READY') qualified++;
-            else if (status === 'UNQUALIFIED' || status === 'ACTING' || status === 'OVERSTAFFED') notQualified++;
+            else if (status === 'UNQUALIFIED') notQualified++;
             else qualified++;
 
             if (person.is_acting || p.is_acting) acting++;
