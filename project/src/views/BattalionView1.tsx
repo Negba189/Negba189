@@ -165,6 +165,30 @@ export default function BattalionView1() {
     }
     return allData;
   };
+
+  const fetchAllPersonQuals = async () => {
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('person_qualifications')
+        .select('*, qualifications(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
   
   const fetchAllPositions = async () => {
     let allData: Position[] = [];
@@ -195,11 +219,11 @@ export default function BattalionView1() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [unitRes, assignRes, personQualsRes, personsData] = await Promise.all([
+        const [unitRes, assignRes, personsData, personQualsData] = await Promise.all([
           supabase.from('units').select('*').order('name'),
           supabase.from('assignments').select('*, persons(*)'),
-          supabase.from('person_qualifications').select('*, qualifications(*)'),
           fetchAllPersons(),
+          fetchAllPersonQuals(), // שימוש בפונקציה המדורגת המלאה כאן
         ]);
 
         if (unitRes.data) setUnits(unitRes.data);
@@ -241,9 +265,10 @@ export default function BattalionView1() {
           personsData.forEach(p => personsMap.set(String(p.id), p));
         }
 
+        // בניית מפת ההסמכות מתוך כל הנתונים המלאים שהתקבלו בפעימות
         const qualsMap: Record<string, string[]> = {};
-        if (personQualsRes.data) {
-          personQualsRes.data.forEach((pq: any) => {
+        if (personQualsData) {
+          personQualsData.forEach((pq: any) => {
             const pid = String(pq.person_id);
             if (!qualsMap[pid]) qualsMap[pid] = [];
             const qName = pq.qualifications?.name || pq.qualification_name;
@@ -335,23 +360,28 @@ export default function BattalionView1() {
 
   const checkQualification = (position: Position | null, person: Person | null) => {
     if (!position || !person) return true;
+    
     const reqs = positionReqs.filter(r => String(r.position_id) === String(position.id));
     if (reqs.length === 0) return true;
 
     const personQuals = personQualsMap[String(person.id)] || [];
-    const personQualsStr = [
-      ...personQuals,
-      (person as any).rank || '',
-      (person as any).profession || '',
-    ].map(s => String(s).toLowerCase());
+    const personQualsNormalized = personQuals.map(s => String(s).toLowerCase().trim());
+
+    // דיאגנוסטיקה: הדפסה לקונסול כדי לראות למה יש פער
+    console.log(`Checking Position: ${position.title} (ID: ${position.id}) for Person: ${person.first_name} ${person.last_name} (ID: ${person.id})`);
+    console.log('Required Reqs:', reqs);
+    console.log('Person Quals Found:', personQualsNormalized);
 
     return reqs.every(req => {
-      const qName = (req.qualifications?.name || '').toLowerCase();
+      const qName = (req.qualifications?.name || req.qualification_name || '').toLowerCase().trim();
       if (!qName) return true;
-      return personQualsStr.some(pq => pq.includes(qName));
+      
+      const hasIt = personQualsNormalized.some(pq => pq === qName || pq.includes(qName));
+      console.log(`Requirement "${qName}": Matched = ${hasIt}`);
+      return hasIt;
     });
   };
-
+  
   const getHqSlotDetails = (slotId: string) => {
     const positionId = currentHqMapping[slotId];
     if (!positionId) return { position: null, person: null, isQualified: true };
