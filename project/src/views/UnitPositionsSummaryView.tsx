@@ -19,8 +19,7 @@ import {
   type Position, 
   type Assignment, 
   type PositionRequirement, 
-  type PersonQualification, 
-  calculatePositionStatus 
+  type PersonQualification 
 } from '@/types';
 import { buildDescendantMaps } from '@/lib/unitHierarchy';
 
@@ -43,7 +42,7 @@ export default function UnitPositionsStatusView() {
   const [level2Id, setLevel2Id] = useState<string>(''); 
   const [level3Id, setLevel3Id] = useState<string>(''); 
 
-  // שליפת נתונים מלאה בלולאות עוקפות מגבלת Supabase
+  // שליפת נתונים מלאה בלולאות עוקפות מגבלת Supabase (1000 שורות)
   const fetchAllPositions = async () => {
     let allData: Position[] = [];
     let from = 0;
@@ -109,23 +108,71 @@ export default function UnitPositionsStatusView() {
     return allData;
   };
 
+  const fetchAllReqs = async () => {
+    let allData: PositionRequirement[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('position_requirements')
+        .select('*, qualifications(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
+  const fetchAllPersonQuals = async () => {
+    let allData: PersonQualification[] = [];
+    let from = 0;
+    const step = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('person_qualifications')
+        .select('*, qualifications(*)')
+        .range(from, from + step - 1);
+
+      if (error) break;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        if (data.length < step) keepFetching = false;
+        else from += step;
+      } else {
+        keepFetching = false;
+      }
+    }
+    return allData;
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [unitRes, reqRes, personQualRes, posList, assignList, personsData] = await Promise.all([
+      const [unitRes, posList, assignList, reqList, personQualList, personsData] = await Promise.all([
         supabase.from('units').select('*').order('name'),
-        supabase.from('position_requirements').select('*'),
-        supabase.from('person_qualifications').select('*'),
         fetchAllPositions(),
         fetchAllAssignments(),
+        fetchAllReqs(),
+        fetchAllPersonQuals(),
         fetchAllPersons(),
       ]);
 
       if (unitRes.data) setUnits(unitRes.data as Unit[]);
       setPositions(posList);
-      if (reqRes.data) setRawReqs(reqRes.data as PositionRequirement[]);
-      if (personQualRes.data) setRawPersonQuals(personQualRes.data as PersonQualification[]);
       setRawAssignments(assignList);
+      setRawReqs(reqList);
+      setRawPersonQuals(personQualList);
 
       const unitAssignedPersons: Record<string, any[]> = {};
       if (personsData) {
@@ -178,7 +225,7 @@ export default function UnitPositionsStatusView() {
     return null; // ללא בחירה -> מציג את כלל החטיבה
   }, [units, level1Id, level2Id, level3Id]);
 
-  // חישוב סטטוס תקינה לכל תקן
+  // חישוב סטטוס תקינה מדויק לכל תקן
   const statusMap = useMemo(() => {
     const assignmentsByPos = new Map<string, Assignment[]>();
     rawAssignments.forEach((a) => {
@@ -188,34 +235,78 @@ export default function UnitPositionsStatusView() {
       assignmentsByPos.set(posId, arr);
     });
 
-    const reqsByPos = new Map<string, PositionRequirement[]>();
-    rawReqs.forEach((r) => {
-      const posId = String(r.position_id);
-      const arr = reqsByPos.get(posId) || [];
-      arr.push(r);
-      reqsByPos.set(posId, arr);
+    const positionReqsMap = new Map<string, Array<{ id?: string; name: string }>>();
+    rawReqs.forEach((req: any) => {
+      const posId = String(req.position_id);
+      const qName = req.qualifications?.name || req.qualification_name;
+      const qId = req.qualification_id ? String(req.qualification_id) : undefined;
+      if (qName || qId) {
+        if (!positionReqsMap.has(posId)) positionReqsMap.set(posId, []);
+        positionReqsMap.get(posId)!.push({ id: qId, name: qName || '' });
+      }
     });
 
-    const personQualsByPerson = new Map<string, Set<string>>();
-    rawPersonQuals.forEach((pq) => {
+    const personQualsMap = new Map<string, string[]>();
+    const personQualIdsMap = new Map<string, string[]>();
+    rawPersonQuals.forEach((pq: any) => {
       const pId = String(pq.person_id);
-      const set = personQualsByPerson.get(pId) || new Set<string>();
-      set.add(String(pq.qualification_id));
-      personQualsByPerson.set(pId, set);
+      const qName = pq.qualifications?.name || pq.qualification_name;
+      if (qName) {
+        if (!personQualsMap.has(pId)) personQualsMap.set(pId, []);
+        personQualsMap.get(pId)!.push(qName);
+      }
+      if (pq.qualification_id) {
+        if (!personQualIdsMap.has(pId)) personQualIdsMap.set(pId, []);
+        personQualIdsMap.get(pId)!.push(String(pq.qualification_id));
+      }
     });
 
     const map: Record<string, string> = {};
     positions.forEach((pos) => {
       const posIdStr = String(pos.id);
       const activeAssignments = assignmentsByPos.get(posIdStr) || [];
-      const posReqs = reqsByPos.get(posIdStr) || [];
-      const requiredQualIds = new Set(posReqs.map((r) => String(r.qualification_id)));
-      let personQualIds = new Set<string>();
-      if (activeAssignments.length === 1) {
-        personQualIds = personQualsByPerson.get(String(activeAssignments[0].person_id)) || new Set<string>();
+      const reqsList = positionReqsMap.get(posIdStr) || [];
+
+      if (activeAssignments.length === 0) {
+        map[posIdStr] = 'SHORTAGE';
+        return;
       }
-      map[posIdStr] = calculatePositionStatus(activeAssignments, requiredQualIds, personQualIds);
+
+      // אם לא הוגדרו דרישות הסמכה לתקן - התקן נחשב כשיר אוטומטית
+      if (reqsList.length === 0) {
+        map[posIdStr] = 'READY';
+        return;
+      }
+
+      let isFullyReady = true;
+      for (const assignment of activeAssignments) {
+        let pObj = assignment.persons || (assignment as any).person;
+        if (Array.isArray(pObj)) pObj = pObj[0];
+        const pIdStr = String(assignment.person_id || pObj?.id || '');
+        
+        const pQuals = personQualsMap.get(pIdStr) || [];
+        const pQualIds = personQualIdsMap.get(pIdStr) || [];
+
+        for (const req of reqsList) {
+          let hasIt = false;
+          if (req.id && pQualIds.includes(req.id)) {
+            hasIt = true;
+          } else if (req.name) {
+            const reqNameLower = req.name.toLowerCase();
+            hasIt = pQuals.some((q) => q.toLowerCase().includes(reqNameLower));
+          }
+
+          if (!hasIt) {
+            isFullyReady = false;
+            break;
+          }
+        }
+        if (!isFullyReady) break;
+      }
+
+      map[posIdStr] = isFullyReady ? 'READY' : 'UNQUALIFIED';
     });
+
     return map;
   }, [positions, rawAssignments, rawReqs, rawPersonQuals]);
 
@@ -256,20 +347,14 @@ export default function UnitPositionsStatusView() {
 
       if (assignCount > 1) overstaffedCount += (assignCount - 1);
 
-      switch (st) {
-        case 'READY':
-          assignedCount++;
-          readyCount++;
-          break;
-        case 'UNQUALIFIED':
-        case 'ACTING':
-        case 'OVERSTAFFED':
-          assignedCount++;
-          unqualifiedCount++;
-          break;
-        case 'SHORTAGE':
-          shortageCount++;
-          break;
+      if (st === 'READY') {
+        assignedCount++;
+        readyCount++;
+      } else if (st === 'UNQUALIFIED') {
+        assignedCount++;
+        unqualifiedCount++;
+      } else if (st === 'SHORTAGE') {
+        shortageCount++;
       }
     });
 
@@ -322,7 +407,7 @@ export default function UnitPositionsStatusView() {
           total++;
           const st = statusMap[String(p.id)];
           if (st === 'READY') { assigned++; ready++; }
-          else if (st === 'UNQUALIFIED' || st === 'ACTING' || st === 'OVERSTAFFED') { assigned++; unqualified++; }
+          else if (st === 'UNQUALIFIED') { assigned++; unqualified++; }
           else if (st === 'SHORTAGE') { shortage++; }
         });
         const manningRate = total > 0 ? (assigned / total) * 100 : 0;
@@ -376,7 +461,7 @@ export default function UnitPositionsStatusView() {
     };
   }, [subFrameworksTableData]);
 
-  // ד. רשימת פערים משמעותיים בתפקידים - מאוחד לפי שש התפקיד בלבד ללא פירוט מסגרות
+  // ד. רשימת פערים משמעותיים בתפקידים - מאוחד לפי שם התפקיד בלבד ללא פירוט מסגרות
   const criticalGapsData = useMemo(() => {
     const unitIdsToInclude = new Set<string>();
     
