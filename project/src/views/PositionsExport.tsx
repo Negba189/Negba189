@@ -26,6 +26,7 @@ interface ExportRow {
   'הסמכות חסרות לחייל': string;
 }
 
+
 interface UnassignedExportRow {
   'רמה 1 (חטיבה/מפקדה)': string;
   'רמה 2 (גדוד/מטה)': string;
