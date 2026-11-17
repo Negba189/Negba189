@@ -47,6 +47,7 @@ interface NavCategory {
   items?: SubNavItem[];
 }
 
+
 const NAV_CATEGORIES: NavCategory[] = [
   { 
     id: 'org-tree', 
