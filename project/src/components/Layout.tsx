@@ -31,6 +31,7 @@ export type TabId =
   | 'WeaponDashboard'
   | 'DavidDashboard'
   | 'CommandDashboard'
+  | 'PositionsExport'
   | 'qualifications-matrix';
 
 interface SubNavItem {
@@ -102,6 +103,14 @@ const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { id: 'positions', label: 'א. ניהול תקנים' },
       { id: 'qualifications', label: 'ב. ניהול הסמכות' },
+    ]
+  },
+  { 
+    id: 'export', 
+    label: 'שליפת נתונים', 
+    icon: ShieldCheck, 
+    items: [
+      { id: 'PositionsExport', label: 'שליפת נתונים' },
     ]
   },
   { 
