@@ -32,7 +32,6 @@ import CommandDashboard from '@/views/CommandDashboard';
 import PositionsExport from '@/views/PositionsExport';
 
 
-
 function AppContent() {
   const auth = useAuth();
  const [activeTab, setActiveTab] = useState<TabId>('home');
