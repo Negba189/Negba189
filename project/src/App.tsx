@@ -29,6 +29,7 @@ import BulkPositionQualificationsMatrixView from '@/views/BulkPositionQualificat
 import WeaponDashboard from '@/views/WeaponDashboard';
 import DavidDashboard from '@/views/DavidDashboard';
 import CommandDashboard from '@/views/CommandDashboard';
+import PositionsExport from '@/views/PositionsExport';
 
 
 
@@ -78,6 +79,7 @@ function AppContent() {
           {activeTab === 'WeaponDashboard' && <WeaponDashboard />}
           {activeTab === 'DavidDashboard' && <DavidDashboard />}
           {activeTab === 'CommandDashboard' && <CommandDashboard />}
+          {activeTab === 'PositionsExport' && <PositionsExport />}
         </Layout>
       </UnitScopeProvider>
     </SystemUserProvider>
