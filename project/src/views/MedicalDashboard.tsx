@@ -631,7 +631,7 @@ export default function MedicalDashboard() {
       mannedPositionsCount: number; // תקנים מאוישים בפועל (0/1)
       overstaffedCount: number;     // תקינה עודפת
       readyCount: number;           // כשירים בפועל
-      unqualifiedCount: number;     // מאוישים לא כשירים
+      unqualifiedCount: number;     // מאוישים לא מוסמכים
       positionGapCount: number;     // פער איוש תקן (0/1)
     }>();
 
@@ -860,7 +860,7 @@ export default function MedicalDashboard() {
                 <th className="p-3.5 text-center">תקינה רפואית</th>
                 <th className="p-3.5 text-center">מאויש</th>
                 <th className="p-3.5 text-center">כשיר</th>
-                <th className="p-3.5 text-center">לא כשיר</th>
+                <th className="p-3.5 text-center">לא מוסמך</th>
                 <th className="p-3.5 text-center">פער איוש</th>
                 <th className="p-3.5 text-center">איוש %</th>
                 <th className="p-3.5 text-center">כשירות %</th>
@@ -943,7 +943,7 @@ export default function MedicalDashboard() {
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> מאויש וכשיר</div>
-            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400"></span> מאויש ולא כשיר</div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400"></span> מאויש ולא מוסמך</div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-500"></span> פער איוש</div>
           </div>
         </div>
@@ -973,7 +973,7 @@ export default function MedicalDashboard() {
                   <div
                     style={{ width: `${unqualPct}%` }}
                     className="bg-amber-400 transition-all duration-500"
-                    title={`לא כשיר: ${row.unqualifiedCount} (${unqualPct.toFixed(1)}%)`}
+                    title={`לא מוסמך: ${row.unqualifiedCount} (${unqualPct.toFixed(1)}%)`}
                   />
                   <div
                     style={{ width: `${shortPct}%` }}
@@ -1144,7 +1144,7 @@ export default function MedicalDashboard() {
                 <th className="p-2.5 text-center text-blue-900">תקנים מאוישים בפועל</th>
                 <th className="p-2.5 text-center text-purple-700">תקינה עודפת</th>
                 <th className="p-2.5 text-center text-emerald-600">כשירים בפועל</th>
-                <th className="p-2.5 text-center text-amber-600">מאוישים לא כשירים</th>
+                <th className="p-2.5 text-center text-amber-600">מאוישים לא מוסמכים</th>
                 <th className="p-2.5 text-center text-rose-600">פער איוש תקן</th>
               </tr>
             </thead>
