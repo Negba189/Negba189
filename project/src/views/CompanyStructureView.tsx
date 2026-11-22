@@ -584,7 +584,7 @@ export default function CompanyStructureView() {
                               : 'text-amber-600 font-semibold'
                         }`}>
                           {personsArr.length > 0 
-                            ? `${personsArr.map(p => getFullName(p)).join(', ')} ${!isQualified ? '⚠️ (לא כשיר)' : ''}` 
+                            ? `${personsArr.map(p => getFullName(p)).join(', ')} ${!isQualified ? '⚠️ (לא מוסמך)' : ''}` 
                             : '⚠️ פער איוש'}
                         </span>
                         {personsArr.length > 1 && (
@@ -694,7 +694,7 @@ export default function CompanyStructureView() {
                                       <span className="text-xs text-slate-800 truncate max-w-[130px]" title={pos.title}>{pos.title}</span>
                                       <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className={`text-[11px] font-medium ${personsArr.length > 0 ? (isQual ? 'text-emerald-600' : 'text-amber-600 font-semibold') : 'text-rose-600'}`} title={personsArr.map(p => getFullName(p)).join(', ')}>
-                                          {personsArr.length > 0 ? (isQual ? personsArr.map(p => getFullName(p)).join(', ') : `${personsArr.map(p => getFullName(p)).join(', ')} ⚠️ לא כשיר`) : 'פער'}
+                                          {personsArr.length > 0 ? (isQual ? personsArr.map(p => getFullName(p)).join(', ') : `${personsArr.map(p => getFullName(p)).join(', ')} ⚠️ לא מוסמך`) : 'פער'}
                                         </span>
                                         <button onClick={() => setAssignModalOpen(pos)} className="p-1 text-slate-500 hover:text-emerald-600">
                                           <UserPlus className="w-3.5 h-3.5" />
