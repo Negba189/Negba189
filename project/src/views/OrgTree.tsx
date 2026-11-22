@@ -783,7 +783,7 @@ export default function OrgTree() {
                         </div>
                         <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-base font-bold text-amber-600 block">{selectedUnitStats.notQualified}</span>
-                          <span className="text-[10px] text-slate-500 block mt-0.5">לא כשירים/חסרי הסמכה</span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">לא מוסמכים</span>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <span className="text-base font-bold text-purple-600 block">{selectedUnitStats.acting}</span>
@@ -823,7 +823,7 @@ export default function OrgTree() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${personsArr.length > 0 ? (isQual ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200') : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                            {personsArr.length > 0 ? (isQual ? 'מאויש' : 'לא כשיר') : 'פער'}
+                            {personsArr.length > 0 ? (isQual ? 'מאויש' : 'לא מוסמך') : 'פער'}
                           </span>
 
                           {canEdit && personsArr.length > 0 && (
