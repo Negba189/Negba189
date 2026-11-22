@@ -324,7 +324,7 @@ export default function DavidDashboard() {
           if (hasStatusQual) {
             readyCount++; // כשיר (יש לו את הסטטוס)
           } else {
-            unqualifiedCount++; // לא כשיר (משובץ אבל אין לו את הסטטוס)
+            unqualifiedCount++; // לא מוסמך (משובץ אבל אין לו את הסטטוס)
           }
         } else {
           shortageCount++;
@@ -519,7 +519,7 @@ export default function DavidDashboard() {
       case 'רכב נצ"מ':
         return { ready: 'בעל נצ"מ', notReady: 'ללא נצ"מ' };
       default:
-        return { ready: 'כשיר', notReady: 'לא כשיר' };
+        return { ready: 'כשיר', notReady: 'לא מוסמך' };
     }
   }, [activeSubCategory]);
 
