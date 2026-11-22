@@ -367,7 +367,7 @@ export default function PositionsExport() {
               'דרגה': person.rank || '',
               'מקצוע': person.profession || '',
               'הסמכות החייל בפועל': pQuals.join(', '),
-              'סטטוס כשירות': isQualified ? 'כשיר' : 'לא כשיר / חסר הסמכה',
+              'סטטוס כשירות': isQualified ? 'כשיר' : 'לא מוסמך',
               'הסמכות חסרות לחייל': missingQuals.join(', '),
             });
           });
