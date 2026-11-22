@@ -699,12 +699,12 @@ export default function UnitSummaryView() {
 
         <div className="card p-2.5 bg-amber-50 border-amber-200 flex flex-col justify-between shadow-xs rounded-xl">
           <div className="flex items-center justify-between text-amber-700 mb-1">
-            <span className="text-[10px] font-bold">איוש לא כשיר</span>
+            <span className="text-[10px] font-bold">איוש לא מוסמך</span>
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
           </div>
           <div>
             <div className="text-xl font-black text-amber-700">{metrics.unqualified}</div>
-            <div className="text-[9px] text-amber-800 font-medium">לא כשיר ({unqualifiedRate}%)</div>
+            <div className="text-[9px] text-amber-800 font-medium">לא מוסמך ({unqualifiedRate}%)</div>
           </div>
         </div>
 
@@ -750,7 +750,7 @@ export default function UnitSummaryView() {
                 <th className="py-2 px-3 text-center">תקינה</th>
                 <th className="py-2 px-3 text-center">מאויש</th>
                 <th className="py-2 px-3 text-center text-emerald-700">כשיר</th>
-                <th className="py-2 px-3 text-center text-amber-700">לא כשיר</th>
+                <th className="py-2 px-3 text-center text-amber-700">לא מוסמך</th>
                 <th className="py-2 px-3 text-center text-rose-700">פער איש</th>
                 <th className="py-2 px-3 text-center text-purple-700">פנויים</th>
                 <th className="py-2 px-3 text-center">איוש %</th>
@@ -852,7 +852,7 @@ export default function UnitSummaryView() {
             </div>
             <div className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span>מאויש ולא כשיר</span>
+              <span>מאויש ולא מוסמך</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
@@ -886,7 +886,7 @@ export default function UnitSummaryView() {
                   <div 
                     style={{ width: `${unqualPct}%` }} 
                     className="bg-amber-400 transition-all duration-500 shrink-0" 
-                    title={`מאויש ולא כשיר: ${row.unqualified}`}
+                    title={`מאויש ולא מוסמך: ${row.unqualified}`}
                   />
                   <div 
                     style={{ width: `${shortagePct}%` }} 
