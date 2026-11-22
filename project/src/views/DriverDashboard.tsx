@@ -62,7 +62,7 @@ export default function DriversDashboard() {
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ספי כשירות דינמיים
+  // ספי ות דינמיים
   const [greenThreshold, setGreenThreshold] = useState<number>(90);
   const [orangeThreshold, setOrangeThreshold] = useState<number>(75);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
@@ -647,7 +647,7 @@ export default function DriversDashboard() {
         <div>
           <div className="flex items-center gap-2 text-amber-300 text-xs font-bold mb-1">
             <Truck className="w-4 h-4" />
-            <span>תמונת מצב נהגים והיתרים | כשירות ואיוש מצבת נהגים</span>
+            <span>תמונת מצב נהגים והיתרים | ות ואיוש מצבת נהגים</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight">סטטוס תקינה ואיוש נהגים לפי מסגרות</h1>
           <p className="text-xs text-slate-300 mt-1">
@@ -661,7 +661,7 @@ export default function DriversDashboard() {
             className="flex items-center gap-2 px-3.5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-xs font-bold rounded-xl border border-white/15 transition-all cursor-pointer text-amber-100"
           >
             <Settings className="w-4 h-4" />
-            <span>הגדרת ספי כשירות</span>
+            <span>הגדרת ספי ות</span>
           </button>
         </div>
       </div>
@@ -770,8 +770,8 @@ export default function DriversDashboard() {
                 <th className="p-3.5 pr-5">מסגרת</th>
                 <th className="p-3.5 text-center">תקינת נהגים</th>
                 <th className="p-3.5 text-center">מאויש</th>
-                <th className="p-3.5 text-center">כשיר</th>
-                <th className="p-3.5 text-center">לא כשיר</th>
+                <th className="p-3.5 text-center"></th>
+                <th className="p-3.5 text-center">לא מוסמך</th>
                 <th className="p-3.5 text-center">פער איוש</th>
                 <th className="p-3.5 text-center">איוש %</th>
                 <th className="p-3.5 text-center">כשירות %</th>
@@ -854,7 +854,7 @@ export default function DriversDashboard() {
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> מאויש וכשיר</div>
-            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400"></span> מאויש ולא כשיר</div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400"></span> מאויש ולא מוסמך</div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-500"></span> פער איוש</div>
           </div>
         </div>
@@ -884,7 +884,7 @@ export default function DriversDashboard() {
                   <div
                     style={{ width: `${unqualPct}%` }}
                     className="bg-amber-400 transition-all duration-500"
-                    title={`לא כשיר: ${row.unqualifiedCount} (${unqualPct.toFixed(1)}%)`}
+                    title={`לא מוסמך: ${row.unqualifiedCount} (${unqualPct.toFixed(1)}%)`}
                   />
                   <div
                     style={{ width: `${shortPct}%` }}
@@ -1055,7 +1055,7 @@ export default function DriversDashboard() {
                 <th className="p-2.5 text-center text-blue-900">תקנים מאוישים בפועל</th>
                 <th className="p-2.5 text-center text-purple-700">תקינה עודפת</th>
                 <th className="p-2.5 text-center text-emerald-600">כשירים בפועל</th>
-                <th className="p-2.5 text-center text-amber-600">מאוישים לא כשירים</th>
+                <th className="p-2.5 text-center text-amber-600">מאוישים לא מוסמכים</th>
                 <th className="p-2.5 text-center text-rose-600">פער איוש תקן</th>
               </tr>
             </thead>
